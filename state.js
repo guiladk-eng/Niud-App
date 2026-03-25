@@ -1,0 +1,75 @@
+// ===== state.js =====
+// מצב גלובלי של האפליקציה (מחליף את useState של React)
+
+const AppState = {
+  // Auth
+  user: null,
+  isAuthenticated: false,
+  loggedInAdmin: '',
+  loginUsername: '',
+  loginPassword: '',
+  loginError: '',
+
+  // Active tab
+  activeTab: 'form',
+
+  // Soldier form
+  soldierName: '',
+  personalNumber: '',
+  formSearchTerm: '',
+  isFormDropdownOpen: false,
+
+  // Dashboard
+  selectedSoldier: '',
+  dashboardSearchTerm: '',
+  isDashboardDropdownOpen: false,
+
+  // Data lists (loaded from Firebase or defaults)
+  inventoryCategories: {},
+  weaponsData: {},
+  opticsData: {},
+  commsData: {},
+  totalStock: {},
+  soldiersData: [],
+
+  // Cart (equipment for current soldier)
+  cart: {},
+  originalCart: {},
+  selectedWeaponType: '',
+  selectedWeaponSerial: '',
+  cartWeapons: [],
+  originalWeapons: [],
+  selectedOpticType: '',
+  selectedOpticSerial: '',
+  cartOptics: [],
+  originalOptics: [],
+  selectedCommType: '',
+  selectedCommSerial: '',
+  cartComms: [],
+  originalComms: [],
+
+  // Firestore data
+  submissionHistory: [],
+  inventoryTotals: {},
+  isLoadingData: true,
+
+  // Save states
+  isSubmitting: false,
+  submitMessage: '',
+  isSavingDb: false,
+  dbSaveMessage: '',
+  isSavingStock: false,
+  stockSaveMessage: '',
+  isSavingSoldiers: false,
+  soldierSaveMessage: '',
+  isSavingCategories: false,
+  categoriesSaveMessage: '',
+
+  // New soldier form
+  newSoldier: { name: '', id: '', department: '', isMaplag: false }
+};
+
+// Simple reactive system: call render() after any state change
+function setState(updates) {
+  Object.assign(AppState, updates);
+}

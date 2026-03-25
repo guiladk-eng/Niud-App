@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>מערכת לוגיסטיקה ניוד</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Firebase v8 (compat - simpler API) -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+  <style>
+    /* RTL support + base font */
+    body { font-family: 'Segoe UI', Arial, sans-serif; }
+    /* Hide scrollbar on tab nav */
+    .scrollbar-hide::-webkit-scrollbar { display: none; }
+    .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+    /* Smooth tab transitions */
+    main > div { animation: fadeIn .2s ease; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+  </style>
+</head>
+<body class="bg-gray-50">
+
+  <!-- App root -->
+  <div id="app">
+    <div class="flex items-center justify-center min-h-screen bg-gray-50 text-gray-800" dir="rtl">
+      <div class="text-xl font-medium animate-pulse">טוען מערכת...</div>
+    </div>
+  </div>
+
+  <!-- ─── Data layer ───────────────────────────────── -->
+  <script src="data.js"></script>
+
+  <!-- ─── App infrastructure ──────────────────────── -->
+  <script src="state.js"></script>
+  <script src="firebase.js"></script>
+
+  <!-- ─── UI modules ──────────────────────────────── -->
+  <script src="render.js"></script>
+  <script src="ui-form.js"></script>
+  <script src="ui-dashboard.js"></script>
+  <script src="ui-inventory.js"></script>
+  <script src="ui-database.js"></script>
+  <script src="ui-soldiers.js"></script>
+  <script src="ui-categories.js"></script>
+
+  <!-- ─── Logic modules ───────────────────────────── -->
+  <script src="export.js"></script>
+  <script src="cart.js"></script>
+  <script src="soldiers.js"></script>
+  <script src="firestore.js"></script>
+  <script src="auth.js"></script>
+
+  <!-- ─── Boot ────────────────────────────────────── -->
+  <script>
+    // Initialize default data before Firebase loads
+    AppState.inventoryCategories = DEFAULT_INVENTORY_CATEGORIES;
+    AppState.weaponsData          = DEFAULT_WEAPONS_DATA;
+    AppState.opticsData           = DEFAULT_OPTICS_DATA;
+    AppState.commsData            = DEFAULT_COMMS_DATA;
+    AppState.soldiersData         = DEFAULT_SOLDIERS_LIST;
+
+    // Start Firebase and auth
+    initFirebase();
+    initAuth();
+  </script>
+</body>
+</html>
