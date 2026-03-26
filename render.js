@@ -15,12 +15,24 @@ function renderApp() {
   const root = document.getElementById('app');
   if (!root) return;
 
-  const { user, isAuthenticated } = AppState;
+  const { user, isAuthenticated, isAuthReady, authError, authErrorCode } = AppState;
 
   if (!user) {
+    const authErrorHtml = authError ? `
+      <div class="mt-4 max-w-md bg-red-50 text-red-700 border border-red-200 rounded-lg p-3 text-sm">
+        <div class="font-bold mb-1">שגיאת התחברות ל-Firebase</div>
+        <div>${escH(authError)}</div>
+        ${authErrorCode ? `<div class="mt-1 text-xs text-red-600">code: ${escH(authErrorCode)}</div>` : ''}
+      </div>` : '';
+
     root.innerHTML = `
       <div class="flex items-center justify-center min-h-screen bg-gray-50 text-gray-800 font-sans" dir="rtl">
-        <div class="text-xl font-medium animate-pulse">מתחבר למערכת...</div>
+        <div class="text-center">
+          <div class="text-xl font-medium ${authError ? '' : 'animate-pulse'}">
+            ${isAuthReady ? 'אין משתמש מחובר' : 'מתחבר למערכת...'}
+          </div>
+          ${authErrorHtml}
+        </div>
       </div>`;
     return;
   }

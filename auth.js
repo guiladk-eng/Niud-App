@@ -2,15 +2,97 @@
 // לוגיקת אימות - מעודכן לגרסה החדשה
 
 function initAuth() {
+  setState({ isAuthReady: false, authError: '', authErrorCode: '' });
+  renderApp();
+
+  window.__niudAuthDebug = {
+    startedAt: new Date().toISOString(),
+    userAgent: navigator.userAgent,
+    online: navigator.onLine
+  };
+
+  setTimeout(() => {
+    if (!AppState.isAuthReady && !AppState.user && !AppState.authError) {
+      setState({
+        authError: 'Firebase auth timed out (no response from authentication server).',
+        authErrorCode: 'auth/timeout'
+      });
+      renderApp();
+      console.error('Firebase auth timeout: no auth state change after 12s');
+    }
+  }, 12000);
+
   auth.onAuthStateChanged((currentUser) => {
-    setState({ user: currentUser });
+    window.__niudAuthDebug.lastAuthStateChangeAt = new Date().toISOString();
+    window.__niudAuthDebug.currentUid = currentUser ? currentUser.uid : null;
+
+    setState({
+      user: currentUser,
+      isAuthReady: true,
+      authError: '',
+      authErrorCode: ''
+    });
     if (currentUser) {
       loadFirestoreData();
     }
     renderApp();
+  }, (observerErr) => {
+    console.error('onAuthStateChanged observer error:', observerErr);
+    window.__niudAuthDebug.authObserverError = {
+      code: observerErr && observerErr.code,
+      message: observerErr && observerErr.message
+    };
+    setState({
+      isAuthReady: true,
+      authError: observerErr?.message || 'Firebase auth observer failed.',
+      authErrorCode: observerErr?.code || 'auth/observer-error'
+    });
+    renderApp();
   });
 
-  auth.signInAnonymously().catch(err => console.error('Auth error:', err));
+  if (!navigator.onLine) {
+    setState({
+      authError: 'No internet connection. Firebase auth cannot start while offline.',
+      authErrorCode: 'network/offline'
+    });
+    renderApp();
+  }
+
+  auth.signInAnonymously().catch(async (err) => {
+    console.error('Anonymous auth error:', err);
+    window.__niudAuthDebug.anonymousAuthError = {
+      code: err && err.code,
+      message: err && err.message
+    };
+
+    const hasEmailFallback = !!(FIREBASE_AUTH_EMAIL && FIREBASE_AUTH_PASSWORD);
+    if (err && err.code === 'auth/operation-not-allowed' && hasEmailFallback) {
+      try {
+        await auth.signInWithEmailAndPassword(FIREBASE_AUTH_EMAIL, FIREBASE_AUTH_PASSWORD);
+        return;
+      } catch (fallbackErr) {
+        console.error('Email/password fallback auth error:', fallbackErr);
+        window.__niudAuthDebug.emailFallbackError = {
+          code: fallbackErr && fallbackErr.code,
+          message: fallbackErr && fallbackErr.message
+        };
+        setState({
+          isAuthReady: true,
+          authError: fallbackErr.message || 'Firebase auth failed (email/password fallback).',
+          authErrorCode: fallbackErr.code || 'unknown'
+        });
+        renderApp();
+        return;
+      }
+    }
+
+    setState({
+      isAuthReady: true,
+      authError: err.message || 'Firebase auth failed.',
+      authErrorCode: err.code || 'unknown'
+    });
+    renderApp();
+  });
 }
 
 // handleLogin - מקבל event כדי לתמוך ב-form onsubmit

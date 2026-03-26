@@ -4,6 +4,9 @@
 const AppState = {
   // Auth
   user: null,
+  isAuthReady: false,
+  authError: '',
+  authErrorCode: '',
   isAuthenticated: false,
   loggedInAdmin: '',
   loginUsername: '',

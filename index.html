@@ -66,8 +66,18 @@
     AppState.soldiersData         = DEFAULT_SOLDIERS_LIST;
 
     // Start Firebase and auth
-    initFirebase();
-    initAuth();
+    try {
+      initFirebase();
+      initAuth();
+    } catch (bootErr) {
+      console.error('Boot error:', bootErr);
+      setState({
+        isAuthReady: true,
+        authError: bootErr?.message || 'Unexpected boot error while starting Firebase.',
+        authErrorCode: 'app/boot-error'
+      });
+      renderApp();
+    }
   </script>
 </body>
 </html>

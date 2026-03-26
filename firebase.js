@@ -15,6 +15,11 @@ const firebaseConfig = {
 const GOOGLE_SHEETS_WEBHOOK_URL =
   '';
 
+// Optional fallback auth credentials (used only if anonymous auth is unavailable).
+// Leave empty to disable email/password fallback.
+const FIREBASE_AUTH_EMAIL = '';
+const FIREBASE_AUTH_PASSWORD = '';
+
 const APP_ID = 'niud-form-app';
 
 // Firebase SDK loaded via CDN in index.html
