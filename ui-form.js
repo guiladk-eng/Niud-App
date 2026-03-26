@@ -3,7 +3,7 @@
 
 function renderFormTab() {
   const {
-    soldierName, personalNumber, formSearchTerm, isFormDropdownOpen,
+    soldierName, personalNumber, formSearchTerm,
     inventoryCategories, cart, originalCart,
     weaponsData, selectedWeaponType, selectedWeaponSerial, cartWeapons, originalWeapons,
     opticsData, selectedOpticType, selectedOpticSerial, cartOptics, originalOptics,
@@ -12,7 +12,9 @@ function renderFormTab() {
   } = AppState;
 
   const totalItemsInCart = getTotalItemsInCart();
-  const filteredFormSoldiers = getFilteredSoldiers(formSearchTerm);
+  const allFormSoldiers = Array.isArray(AppState.soldiersData)
+    ? AppState.soldiersData
+    : Object.values(AppState.soldiersData || {});
 
   return `
   <div class="space-y-6">
@@ -26,19 +28,25 @@ function renderFormTab() {
       </h2>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         
-        <div class="relative">
+        <div>
           <label class="block text-sm font-medium text-slate-700 mb-1">חיפוש חייל (שם או מ.א)</label>
           <div class="relative">
             <input type="text"
               id="main-soldier-search"
               value="${escH(formSearchTerm)}"
+              list="form-soldiers-list"
               autocomplete="off"
               placeholder="הקלד לחיפוש חייל..."
               class="w-full border border-slate-300 rounded-lg p-2.5 pl-10 outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              oninput="onFormSearch(this.value)"
-              onfocus="setState({isFormDropdownOpen:true});renderApp()"
-              onblur="setTimeout(()=>{setState({isFormDropdownOpen:false});renderApp()},200)"
+              oninput="handleFormSearchTyping(this.value)"
+              onchange="handleFormSearchSelection(this.value)"
             />
+            <datalist id="form-soldiers-list">
+              ${allFormSoldiers
+                .filter(s => s && s.name)
+                .map(s => `<option value="${escH(formatSoldierSearchValue(s))}"></option>`)
+                .join('')}
+            </datalist>
             
             ${formSearchTerm ? `
               <button type="button" onclick="handleClearSearch()" 
@@ -52,18 +60,6 @@ function renderFormTab() {
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
             </svg>
           </div>
-
-          ${isFormDropdownOpen ? `
-          <ul class="absolute z-20 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-60 overflow-y-auto">
-            ${filteredFormSoldiers.length > 0
-              ? filteredFormSoldiers.map(s =>
-                  `<li onmousedown="selectSoldierForForm(AppState.soldiersData[${AppState.soldiersData.indexOf(s)}])"
-                      class="p-3 hover:bg-blue-50 cursor-pointer border-b border-slate-50 last:border-0 text-slate-700">
-                    ${escH(s.name)} <span class="text-slate-400 text-sm ml-1">${s.id ? `- ${s.id}` : ''} ${s.department ? `| ${s.department}` : ''}</span>
-                  </li>`).join('')
-              : `<li class="p-3 text-slate-500 text-sm text-center">לא נמצאו חיילים</li>`
-            }
-          </ul>` : ''}
         </div>
 
         <div>
@@ -276,6 +272,47 @@ function setSelectedWeaponType(v) { setState({ selectedWeaponType: v, selectedWe
 function setSelectedOpticType(v)  { setState({ selectedOpticType: v, selectedOpticSerial: '' }); renderApp(); }
 function setSelectedCommType(v)   { setState({ selectedCommType: v, selectedCommSerial: '' }); renderApp(); }
 
+function formatSoldierSearchValue(soldier) {
+  if (!soldier) return '';
+  return `${soldier.name || ''}${soldier.id ? ` - ${soldier.id}` : ''}${soldier.department ? ` | ${soldier.department}` : ''}`;
+}
+
+function findSoldierBySearchValue(val) {
+  const arr = Array.isArray(AppState.soldiersData) ? AppState.soldiersData : Object.values(AppState.soldiersData || {});
+  const term = (val || '').trim();
+  if (!term) return null;
+  return arr.find(s => {
+    if (!s) return false;
+    return formatSoldierSearchValue(s) === term || s.name === term || String(s.id || '') === term;
+  }) || null;
+}
+
+function handleFormSearchTyping(val) {
+  if (AppState.soldierName && !val.includes(AppState.soldierName)) {
+    setState({
+      formSearchTerm: val,
+      soldierName: '',
+      personalNumber: '',
+      cart: {}, originalCart: {},
+      cartWeapons: [], originalWeapons: [],
+      cartOptics: [], originalOptics: [],
+      cartComms: [], originalComms: []
+    });
+    return;
+  }
+  setState({ formSearchTerm: val });
+}
+
+function handleFormSearchSelection(val) {
+  const soldier = findSoldierBySearchValue(val);
+  if (!soldier) {
+    setState({ formSearchTerm: val });
+    renderApp();
+    return;
+  }
+  selectSoldierForForm(soldier);
+}
+
 // פונקציית איפוס אגרסיבית המוחקת את כל נתוני החייל מתוך ה-State
 function handleClearSearch() {
   if (typeof selectSoldierForForm === 'function') {
@@ -296,35 +333,3 @@ function handleClearSearch() {
   renderApp();
 }
 
-let searchTimeout;
-function onFormSearch(val) {
-  // זיהוי שינוי בשם קיים ומחיקת הנתונים הישנים
-  if (AppState.soldierName && !val.includes(AppState.soldierName)) {
-    setState({
-      soldierName: '',
-      personalNumber: '',
-      cart: {}, originalCart: {},
-      cartWeapons: [], originalWeapons: [],
-      cartOptics: [], originalOptics: [],
-      cartComms: [], originalComms: []
-    });
-  }
-
-  AppState.formSearchTerm = val;
-  AppState.isFormDropdownOpen = true;
-
-  if (val.trim() === '') {
-    handleClearSearch();
-    return;
-  }
-
-  clearTimeout(searchTimeout);
-  searchTimeout = setTimeout(() => {
-    renderApp();
-    const input = document.getElementById('main-soldier-search');
-    if (input) {
-      input.focus();
-      input.setSelectionRange(val.length, val.length);
-    }
-  }, 400);
-}

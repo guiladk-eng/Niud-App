@@ -173,7 +173,7 @@ function renderDashboardTab() {
               placeholder="הקלד לחיפוש חייל..."
               class="w-full border border-slate-300 rounded-lg p-2.5 pl-10 outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               oninput="onDashboardSearch(this.value)"
-              onfocus="setState({isDashboardDropdownOpen:true});renderApp()"
+              onfocus="setState({isDashboardDropdownOpen:true})"
               onblur="setTimeout(()=>{setState({isDashboardDropdownOpen:false});renderApp()},200)"
             />
             
@@ -351,7 +351,6 @@ function handleClearDashboardSearch() {
   renderApp();
 }
 
-let dashboardTimeout;
 function onDashboardSearch(val) {
   // אם מוחקים חלק מהטקסט של השם הקיים - מאפסים את הכל כדי לאפשר בחירה מחדש
   if (AppState.selectedSoldier && !val.includes(AppState.selectedSoldier)) {
@@ -366,13 +365,5 @@ function onDashboardSearch(val) {
     return;
   }
 
-  clearTimeout(dashboardTimeout);
-  dashboardTimeout = setTimeout(() => {
-    renderApp();
-    const input = document.getElementById('dashboard-soldier-search');
-    if (input) {
-      input.focus();
-      input.setSelectionRange(val.length, val.length);
-    }
-  }, 400);
+  renderApp();
 }

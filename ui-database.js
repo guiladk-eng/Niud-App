@@ -9,7 +9,7 @@ function renderDatabaseTab() {
     <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
       <div>
         <h2 class="text-lg font-bold text-slate-700">ניהול צלמים</h2>
-        <p class="text-sm text-slate-500">הזן את המספרים הסידוריים מופרדים בשורה חדשה (אנטר). כל שינוי ישפיע ישירות על האפשרויות בטופס המאסטר.</p>
+        <p class="text-sm text-slate-500">ניהול לפי סוג פריט: הוספה מהירה, הצגת כל הפריטים, והסרה נקודתית.</p>
       </div>
       <div class="flex gap-2 w-full sm:w-auto">
         <button onclick="exportDatabaseToCSV()"
@@ -28,15 +28,15 @@ function renderDatabaseTab() {
 
     ${renderDbEditorBlock('weaponsData', weaponsData, 'כלי נשק', 'text-red-600',
       `<circle cx="12" cy="12" r="10" stroke-width="2"/><line x1="22" y1="12" x2="18" y2="12" stroke-width="2"/><line x1="6" y1="12" x2="2" y2="12" stroke-width="2"/><line x1="12" y1="6" x2="12" y2="2" stroke-width="2"/><line x1="12" y1="22" x2="12" y2="18" stroke-width="2"/>`,
-      'הזן מספרים סידוריים מופרדים בשורות חדשות (אנטר)')}
+      'נהל מספרים סידוריים לכל סוג')}
 
     ${renderDbEditorBlock('opticsData', opticsData, 'אופטיקה', 'text-indigo-600',
       `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>`,
-      'הזן מספרים סידוריים מופרדים בשורות חדשות (אנטר)')}
+      'נהל מספרים סידוריים לכל סוג')}
 
     ${renderDbEditorBlock('commsData', commsData, 'תקשוב', 'text-emerald-600',
       `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.14 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/>`,
-      'הזן מספרים סידוריים מופרדים בשורות חדשות (אנטר)')}
+      'נהל מספרים סידוריים לכל סוג')}
   </div>`;
 }
 
@@ -49,21 +49,62 @@ function renderDbEditorBlock(stateKey, data, title, colorClass, iconPath, placeh
       <span class="mr-2">${title}</span>
     </h2>
     <div class="space-y-4">
-      ${Object.keys(data).map(type => `
+      ${Object.keys(data).map(type => {
+        const serials = (data[type] || []).filter(s => String(s || '').trim() !== '');
+        const typeKey = dbTypeKey(stateKey, type);
+        const isOpen = !!AppState.dbExpandedTypes[typeKey];
+        const newSerialValue = AppState.dbNewSerialInputs[typeKey] || '';
+
+        return `
       <div class="border border-slate-200 rounded-lg p-3 bg-slate-50 relative">
-        <div class="flex justify-between items-center mb-2">
-          <span class="font-bold text-slate-800">${escH(type)}</span>
+        <div class="flex justify-between items-center mb-3">
+          <div>
+            <span class="font-bold text-slate-800">${escH(type)}</span>
+            <span class="text-xs text-slate-500 mr-2">(${serials.length} פריטים)</span>
+          </div>
           <button onclick="dbDeleteType('${stateKey}','${escH(type)}')" title="מחק קטגוריה זו"
             class="text-red-500 hover:text-red-700 p-1 bg-white rounded shadow-sm border border-red-100">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
           </button>
         </div>
-        <textarea rows="3" placeholder="${placeholder}"
-          class="w-full border border-slate-300 rounded p-2 text-sm text-right bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
-          onchange="dbUpdateType('${stateKey}','${escH(type)}',this.value)"
-          onblur="dbUpdateType('${stateKey}','${escH(type)}',this.value)"
-        >${escH((data[type] || []).join('\n'))}</textarea>
-      </div>`).join('')}
+
+        <div class="flex flex-col sm:flex-row gap-2 mb-2">
+          <input
+            value="${escH(newSerialValue)}"
+            placeholder="הכנס מספר/מזהה פריט חדש"
+            oninput="dbSetNewSerialInput('${stateKey}','${escH(type)}',this.value)"
+            onkeydown="if(event.key==='Enter'){dbAddSerialToType('${stateKey}','${escH(type)}')}"
+            class="flex-1 border border-slate-300 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+          />
+          <button onclick="dbAddSerialToType('${stateKey}','${escH(type)}')"
+            class="bg-slate-800 hover:bg-slate-900 transition-colors text-white px-4 py-2 rounded-lg text-sm font-bold">
+            הוסף פריט
+          </button>
+          <button onclick="dbToggleTypeItems('${stateKey}','${escH(type)}')"
+            class="bg-white hover:bg-slate-100 transition-colors text-slate-700 px-4 py-2 rounded-lg text-sm font-bold border border-slate-300">
+            ${isOpen ? 'הסתר פריטים' : `הצג את כל הפריטים (${serials.length})`}
+          </button>
+        </div>
+
+        ${isOpen ? `
+        <div class="mt-2 border border-slate-200 rounded-lg bg-white p-2 max-h-48 overflow-y-auto">
+          ${serials.length === 0 ? `
+            <div class="text-sm text-slate-500 p-2">${placeholder}</div>
+          ` : `
+            ${serials.map((serial, idx) => `
+              <div class="flex items-center justify-between gap-2 p-2 border-b border-slate-100 last:border-b-0">
+                <span class="font-mono text-sm text-slate-700 break-all">${escH(serial)}</span>
+                <button onclick="dbRemoveSerialFromType('${stateKey}','${escH(type)}',${idx})"
+                  title="הסר פריט"
+                  class="text-red-500 hover:text-red-700 p-1 bg-white rounded shadow-sm border border-red-100">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
+              </div>
+            `).join('')}
+          `}
+        </div>` : ''}
+      </div>`;
+      }).join('')}
     </div>
     <div class="mt-4 flex gap-2">
       <input id="new-type-${stateKey}" placeholder="הוסף סוג חדש ל${title}..."
@@ -80,6 +121,49 @@ function dbUpdateType(stateKey, type, value) {
   const data = { ...AppState[stateKey] };
   data[type] = value.split('\n');
   setState({ [stateKey]: data });
+}
+
+function dbTypeKey(stateKey, type) {
+  return `${stateKey}::${type}`;
+}
+
+function dbSetNewSerialInput(stateKey, type, value) {
+  const key = dbTypeKey(stateKey, type);
+  setState({ dbNewSerialInputs: { ...AppState.dbNewSerialInputs, [key]: value } });
+}
+
+function dbAddSerialToType(stateKey, type) {
+  const key = dbTypeKey(stateKey, type);
+  const newSerial = (AppState.dbNewSerialInputs[key] || '').trim();
+  if (!newSerial) return;
+
+  const data = { ...AppState[stateKey] };
+  const current = Array.isArray(data[type]) ? data[type].map(s => String(s || '').trim()).filter(Boolean) : [];
+  if (current.includes(newSerial)) return;
+
+  data[type] = [...current, newSerial];
+  setState({
+    [stateKey]: data,
+    dbNewSerialInputs: { ...AppState.dbNewSerialInputs, [key]: '' }
+  });
+  renderApp();
+}
+
+function dbToggleTypeItems(stateKey, type) {
+  const key = dbTypeKey(stateKey, type);
+  const current = !!AppState.dbExpandedTypes[key];
+  setState({ dbExpandedTypes: { ...AppState.dbExpandedTypes, [key]: !current } });
+  renderApp();
+}
+
+function dbRemoveSerialFromType(stateKey, type, visibleIndex) {
+  const data = { ...AppState[stateKey] };
+  const serials = (Array.isArray(data[type]) ? data[type] : []).map(s => String(s || '').trim()).filter(Boolean);
+  if (visibleIndex < 0 || visibleIndex >= serials.length) return;
+  serials.splice(visibleIndex, 1);
+  data[type] = serials;
+  setState({ [stateKey]: data });
+  renderApp();
 }
 
 function dbDeleteType(stateKey, type) {

@@ -61,6 +61,8 @@ const AppState = {
   submitMessage: '',
   isSavingDb: false,
   dbSaveMessage: '',
+  dbExpandedTypes: {},
+  dbNewSerialInputs: {},
   isSavingStock: false,
   stockSaveMessage: '',
   isSavingSoldiers: false,
