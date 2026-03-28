@@ -2,7 +2,7 @@
 // טאב ניהול חיילים - גרסה סופית, מוגנת מפני קריסות ונתונים פגומים
 
 function renderSoldiersTab() {
-  const { soldiersData, isSavingSoldiers, soldierSaveMessage } = AppState;
+  const { soldiersData, isSavingSoldiers, soldierSaveMessage, soldiersSearchTerm } = AppState;
 
   // המרה בטוחה למערך, למקרה שהפיירבייס הפך את הרשימה לאובייקט או שיש נתונים חסרים
   let safeSoldiersData = [];
@@ -11,6 +11,8 @@ function renderSoldiersTab() {
   } else if (soldiersData && typeof soldiersData === 'object') {
     safeSoldiersData = Object.values(soldiersData);
   }
+
+  const filteredSoldiersData = getFilteredSoldiers(soldiersSearchTerm || '');
 
   return `
   <div class="space-y-6">
@@ -27,6 +29,26 @@ function renderSoldiersTab() {
     </div>
 
     ${soldierSaveMessage ? `<div class="bg-green-100 text-green-700 p-4 rounded-lg font-medium shadow-sm mb-4">${escH(soldierSaveMessage)}</div>` : ''}
+
+    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+      <label class="block text-sm font-bold text-slate-700 mb-2">חיפוש חייל לפי שם או מ.א</label>
+      <div class="relative">
+        <input
+          type="text"
+          id="soldiers-search-input"
+          value="${escH(soldiersSearchTerm || '')}"
+          placeholder="הקלד שם או מספר אישי..."
+          oninput="handleSoldiersSearchInput(this)"
+          class="w-full border border-slate-300 rounded-lg p-2.5 pl-10 outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+        />
+        <svg class="w-5 h-5 text-slate-400 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+      </div>
+      <div class="text-xs text-slate-500 mt-2">
+        ${soldiersSearchTerm ? `נמצאו ${filteredSoldiersData.length} תוצאות` : `מציג ${safeSoldiersData.length} חיילים`}
+      </div>
+    </div>
 
     <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 mb-6">
       <h3 class="font-bold text-slate-700 mb-3 flex items-center gap-2">
@@ -80,8 +102,9 @@ function renderSoldiersTab() {
             </tr>
           </thead>
           <tbody>
-            ${safeSoldiersData.map((soldier, idx) => {
+            ${filteredSoldiersData.map((soldier) => {
               if (!soldier) return ''; // דילוג בטוח על רשומות ריקות/שבורות
+              const idx = safeSoldiersData.indexOf(soldier);
               return `
               <tr class="border-b border-slate-50 hover:bg-slate-50">
                 <td class="p-2">
@@ -129,6 +152,11 @@ function submitNewSoldier() {
     soldiersData: [...currentSoldiers, { ...newSoldier }],
     newSoldier: { name: '', id: '', department: '', isMaplag: false }
   });
+  queuePendingActivity(`הוסיף חייל חדש: ${newSoldier.name} (${newSoldier.id})${newSoldier.department ? ` | ${newSoldier.department}` : ''}`, {
+    type: 'soldier_add',
+    soldierName: newSoldier.name,
+    personalNumber: newSoldier.id
+  }, 'soldiers');
   
   ['new-soldier-name','new-soldier-id','new-soldier-dept'].forEach(id => {
     const el = document.getElementById(id); 
@@ -139,4 +167,22 @@ function submitNewSoldier() {
   if (cb) cb.checked = false;
   
   renderApp();
+}
+
+function handleSoldiersSearchInput(inputEl) {
+  const value = inputEl ? inputEl.value : '';
+  const cursorPos = inputEl && typeof inputEl.selectionStart === 'number' ? inputEl.selectionStart : value.length;
+
+  setState({ soldiersSearchTerm: value });
+  renderApp();
+
+  const nextInput = document.getElementById('soldiers-search-input');
+  if (!nextInput) return;
+  nextInput.focus();
+  const pos = Math.min(cursorPos, nextInput.value.length);
+  try {
+    nextInput.setSelectionRange(pos, pos);
+  } catch (_) {
+    // ignore for browsers/input modes that do not support selection APIs
+  }
 }

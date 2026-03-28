@@ -40,6 +40,7 @@ function loadFirestoreData() {
       if (data.comms)      updates.commsData = data.comms;
       if (data.totalStock) updates.totalStock = data.totalStock;
       if (data.soldiers)   updates.soldiersData = data.soldiers;
+      if (data.activityLog) updates.activityLog = data.activityLog;
       if (Object.keys(updates).length > 0) {
         setState(updates);
         renderApp();
@@ -171,6 +172,16 @@ async function handleSubmitForm() {
     }
 
     // Clear form after submit (new behavior)
+    const itemChangesCount = Object.keys(itemsDeltas).length
+      + weaponsToAdd.length + weaponsToReturn.length
+      + opticsToAdd.length + opticsToReturn.length
+      + commsToAdd.length + commsToReturn.length;
+    appendActivityLog(`החתים/עדכן את החייל ${soldierName} (${personalNumber}) על ציוד. סה"כ שינויים: ${itemChangesCount}`, {
+      type: 'equipment_submit',
+      soldierName,
+      personalNumber
+    });
+
     setState({
       formSearchTerm: '',
       cart: {}, originalCart: {},
@@ -204,7 +215,26 @@ async function handleSaveDatabase() {
     const cleanedWeapons = clean(AppState.weaponsData);
     const cleanedOptics  = clean(AppState.opticsData);
     const cleanedComms   = clean(AppState.commsData);
-    await getSettingsRef().set({ weapons: cleanedWeapons, optics: cleanedOptics, comms: cleanedComms }, { merge: true });
+
+    // Use update() to replace whole map fields (so deleted types are actually removed).
+    // merge:true keeps old nested keys, which caused deleted weapon types to reappear.
+    const settingsRef = getSettingsRef();
+    try {
+      await settingsRef.update({
+        weapons: cleanedWeapons,
+        optics: cleanedOptics,
+        comms: cleanedComms
+      });
+    } catch (e) {
+      if (e && e.code === 'not-found') {
+        await settingsRef.set({ weapons: cleanedWeapons, optics: cleanedOptics, comms: cleanedComms }, { merge: true });
+      } else {
+        throw e;
+      }
+    }
+
+    commitPendingActivity('database');
+    appendActivityLog('שמר את מסד הנתונים (נשקים/אופטיקה/תקשוב)', { type: 'save_database' });
     setState({ weaponsData: cleanedWeapons, opticsData: cleanedOptics, commsData: cleanedComms, dbSaveMessage: 'מסד הנתונים נשמר וסונכרן בהצלחה!' });
   } catch (e) {
     console.error(e);
@@ -219,6 +249,7 @@ async function handleSaveStock() {
   setState({ isSavingStock: true }); renderApp();
   try {
     await getSettingsRef().set({ totalStock: AppState.totalStock }, { merge: true });
+    appendActivityLog('שמר את המלאי הכללי', { type: 'save_stock' });
     setState({ stockSaveMessage: 'המלאי הכללי נשמר בהצלחה!' });
   } catch (e) {
     console.error(e);
@@ -233,6 +264,8 @@ async function handleSaveSoldiers() {
   setState({ isSavingSoldiers: true }); renderApp();
   try {
     await getSettingsRef().set({ soldiers: AppState.soldiersData }, { merge: true });
+    commitPendingActivity('soldiers');
+    appendActivityLog('שמר את רשימת החיילים', { type: 'save_soldiers' });
     setState({ soldierSaveMessage: 'רשימת החיילים נשמרה בהצלחה!' });
   } catch (e) {
     console.error(e);
@@ -253,6 +286,7 @@ async function handleSaveCategories() {
     };
     const cleaned = clean(AppState.inventoryCategories);
     await getSettingsRef().set({ categories: cleaned }, { merge: true });
+    appendActivityLog('שמר את רשימת סוגי הפריטים', { type: 'save_categories' });
     setState({ inventoryCategories: cleaned, categoriesSaveMessage: 'סוגי הפריטים נשמרו בהצלחה!' });
   } catch (e) {
     console.error(e);

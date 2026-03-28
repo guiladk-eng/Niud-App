@@ -85,6 +85,11 @@ function handleAddSoldier(e) {
       soldiersData: [...currentSoldiers, { ...newSoldier }],
       newSoldier: { name: '', id: '', department: '', isMaplag: false }
     });
+    queuePendingActivity(`הוסיף חייל חדש: ${newSoldier.name} (${newSoldier.id})${newSoldier.department ? ` | ${newSoldier.department}` : ''}`, {
+      type: 'soldier_add',
+      soldierName: newSoldier.name,
+      personalNumber: newSoldier.id
+    }, 'soldiers');
     ['new-soldier-name','new-soldier-id','new-soldier-dept'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = '';
@@ -98,14 +103,36 @@ function handleAddSoldier(e) {
 function handleUpdateSoldier(index, field, value) {
   const arr = Array.isArray(AppState.soldiersData) ? [...AppState.soldiersData] : Object.values(AppState.soldiersData || {});
   if (arr[index]) {
+    const before = arr[index];
     arr[index] = { ...arr[index], [field]: value };
     setState({ soldiersData: arr });
+    const after = arr[index];
+    const fieldNames = {
+      name: 'שם',
+      id: 'מספר אישי',
+      department: 'מחלקה',
+      isMaplag: 'הרשאת מפל"ג'
+    };
+    queuePendingActivity(`עדכן חייל ${before.name || ''} (${before.id || ''}) - ${fieldNames[field] || field}: ${String(after[field])}`, {
+      type: 'soldier_update',
+      soldierName: after.name,
+      personalNumber: after.id,
+      field
+    }, 'soldiers');
   }
 }
 
 function handleRemoveSoldier(index) {
   const arr = Array.isArray(AppState.soldiersData) ? AppState.soldiersData : Object.values(AppState.soldiersData || {});
+  const removed = arr[index];
   setState({ soldiersData: arr.filter((_, i) => i !== index) });
+  if (removed) {
+    queuePendingActivity(`הסיר חייל: ${removed.name || ''} (${removed.id || ''})`, {
+      type: 'soldier_remove',
+      soldierName: removed.name,
+      personalNumber: removed.id
+    }, 'soldiers');
+  }
   renderApp();
 }
 

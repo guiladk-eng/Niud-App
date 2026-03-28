@@ -118,6 +118,7 @@ function handleLogin(e) {
   if (soldier) {
     if (soldier.isMaplag) {
       setState({ loggedInAdmin: soldier.name, isAuthenticated: true, loginError: '' });
+      appendActivityLog(`התחבר למערכת`, { type: 'auth_login' });
     } else {
       setState({ loginError: 'גישה נדחתה: המערכת מורשית לחיילי מפל״ג בלבד.' });
     }
@@ -128,10 +129,12 @@ function handleLogin(e) {
 }
 
 function handleLogout() {
+  appendActivityLog('התנתק מהמערכת', { type: 'auth_logout' });
   setState({
     isAuthenticated: false, loggedInAdmin: '',
     loginUsername: '', loginPassword: '',
-    loginError: ''
+    loginError: '',
+    pendingActivityLog: []
   });
   renderApp();
 }

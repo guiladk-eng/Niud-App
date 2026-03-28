@@ -14,7 +14,7 @@ const AppState = {
   loginError: '',
 
   // Active tab
-  activeTab: 'form',
+  activeTab: 'home',
 
   // Soldier form
   soldierName: '',
@@ -26,6 +26,7 @@ const AppState = {
   selectedSoldier: '',
   dashboardSearchTerm: '',
   isDashboardDropdownOpen: false,
+  soldiersSearchTerm: '',
 
   // Data lists (loaded from Firebase or defaults)
   inventoryCategories: {},
@@ -53,6 +54,8 @@ const AppState = {
 
   // Firestore data
   submissionHistory: [],
+  activityLog: [],
+  pendingActivityLog: [],
   inventoryTotals: {},
   isLoadingData: true,
 
@@ -69,6 +72,12 @@ const AppState = {
   soldierSaveMessage: '',
   isSavingCategories: false,
   categoriesSaveMessage: '',
+  historyNoteText: '',
+  historyAttachmentName: '',
+  historyAttachmentDataUrl: '',
+  historyAttachmentError: '',
+  historyViewerAttachmentName: '',
+  historyViewerAttachmentDataUrl: '',
 
   // New soldier form
   newSoldier: { name: '', id: '', department: '', isMaplag: false }

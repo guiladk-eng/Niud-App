@@ -6,7 +6,7 @@ function renderDatabaseTab() {
 
   return `
   <div class="space-y-6">
-    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div class="bg-white p-4 rounded-xl shadow-md border border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sticky top-44 z-10">
       <div>
         <h2 class="text-lg font-bold text-slate-700">ניהול צלמים</h2>
         <p class="text-sm text-slate-500">ניהול לפי סוג פריט: הוספה מהירה, הצגת כל הפריטים, והסרה נקודתית.</p>
@@ -123,6 +123,13 @@ function dbUpdateType(stateKey, type, value) {
   setState({ [stateKey]: data });
 }
 
+function dbStateLabel(stateKey) {
+  if (stateKey === 'weaponsData') return 'כלי נשק';
+  if (stateKey === 'opticsData') return 'אופטיקה';
+  if (stateKey === 'commsData') return 'תקשוב';
+  return stateKey;
+}
+
 function dbTypeKey(stateKey, type) {
   return `${stateKey}::${type}`;
 }
@@ -142,6 +149,12 @@ function dbAddSerialToType(stateKey, type) {
   if (current.includes(newSerial)) return;
 
   data[type] = [...current, newSerial];
+  queuePendingActivity(`הוסיף פריט חדש ב-${dbStateLabel(stateKey)} (${type}) עם צ' ${newSerial}`, {
+    type: 'db_add_serial',
+    category: stateKey,
+    itemType: type,
+    serial: newSerial
+  }, 'database');
   setState({
     [stateKey]: data,
     dbNewSerialInputs: { ...AppState.dbNewSerialInputs, [key]: '' }
@@ -160,8 +173,15 @@ function dbRemoveSerialFromType(stateKey, type, visibleIndex) {
   const data = { ...AppState[stateKey] };
   const serials = (Array.isArray(data[type]) ? data[type] : []).map(s => String(s || '').trim()).filter(Boolean);
   if (visibleIndex < 0 || visibleIndex >= serials.length) return;
+  const removedSerial = serials[visibleIndex];
   serials.splice(visibleIndex, 1);
   data[type] = serials;
+  queuePendingActivity(`הסיר פריט מ-${dbStateLabel(stateKey)} (${type}) עם צ' ${removedSerial}`, {
+    type: 'db_remove_serial',
+    category: stateKey,
+    itemType: type,
+    serial: removedSerial
+  }, 'database');
   setState({ [stateKey]: data });
   renderApp();
 }
@@ -170,6 +190,11 @@ function dbDeleteType(stateKey, type) {
   const data = { ...AppState[stateKey] };
   delete data[type];
   setState({ [stateKey]: data });
+  queuePendingActivity(`מחק סוג מתוך ${dbStateLabel(stateKey)}: ${type}`, {
+    type: 'db_delete_type',
+    category: stateKey,
+    itemType: type
+  }, 'database');
   renderApp();
 }
 
@@ -179,6 +204,11 @@ function dbAddType(stateKey, inputId) {
   if (newType && !AppState[stateKey][newType]) {
     const data = { ...AppState[stateKey], [newType]: [] };
     setState({ [stateKey]: data });
+    queuePendingActivity(`הוסיף סוג חדש ב-${dbStateLabel(stateKey)}: ${newType}`, {
+      type: 'db_add_type',
+      category: stateKey,
+      itemType: newType
+    }, 'database');
     input.value = '';
     renderApp();
   }
