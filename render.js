@@ -99,6 +99,7 @@ function renderMainApp() {
     { id: 'inventory',  label: 'ניהול מלאי',            icon: 'package'   },
     { id: 'categories', label: 'ניהול פריטים',          icon: 'tags'      },
     { id: 'soldiers',   label: 'ניהול חיילים',          icon: 'users'     },
+    { id: 'generalTable', label: 'טבלה כללית',          icon: 'table'     },
     { id: 'database',   label: 'ניהול צלמים',           icon: 'database'  },
   ];
 
@@ -110,6 +111,7 @@ function renderMainApp() {
     package:  `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>`,
     tags:     `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>`,
     users:    `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>`,
+    table:    `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h18M3 12h18M3 17h18M7 3v18M13 3v18M18 3v18"/>`,
     database: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582 4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/>`,
   };
 
@@ -121,6 +123,7 @@ function renderMainApp() {
   else if (activeTab === 'inventory')  tabContent = renderInventoryTab();
   else if (activeTab === 'categories') tabContent = renderCategoriesTab();
   else if (activeTab === 'soldiers')   tabContent = renderSoldiersTab();
+  else if (activeTab === 'generalTable') tabContent = renderGeneralTableTab();
   else if (activeTab === 'database')   tabContent = renderDatabaseTab();
 
   // submitMessage color: orange for errors/no-changes, green for success (matches source)

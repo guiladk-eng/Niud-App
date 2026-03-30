@@ -33,6 +33,7 @@ const AppState = {
   weaponsData: {},
   opticsData: {},
   commsData: {},
+  ammoData: {},
   totalStock: {},
   soldiersData: [],
 
@@ -70,6 +71,9 @@ const AppState = {
   stockSaveMessage: '',
   isSavingSoldiers: false,
   soldierSaveMessage: '',
+  isSavingGeneralTable: false,
+  generalTableSaveMessage: '',
+  generalTableNotice: '',
   isSavingCategories: false,
   categoriesSaveMessage: '',
   historyNoteText: '',
@@ -78,6 +82,9 @@ const AppState = {
   historyAttachmentError: '',
   historyViewerAttachmentName: '',
   historyViewerAttachmentDataUrl: '',
+  generalTableAssignments: {},
+  generalTableFilters: { amral: '', comm: '', multitool: '', frag: '', weaponType: '', weaponSerial: '' },
+  generalTableSearchTerm: '',
 
   // New soldier form
   newSoldier: { name: '', id: '', department: '', isMaplag: false }

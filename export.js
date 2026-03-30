@@ -66,6 +66,7 @@ function exportDatabaseToCSV() {
   appendData(AppState.weaponsData);
   appendData(AppState.opticsData);
   appendData(AppState.commsData);
+  appendData(AppState.ammoData || {});
 
   downloadCSV(csv, 'מסד_נתונים_לוגיסטיקה.csv');
 }

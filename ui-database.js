@@ -2,7 +2,7 @@
 // טאב עריכת מסד נתונים - מעודכן לגרסה החדשה
 
 function renderDatabaseTab() {
-  const { weaponsData, opticsData, commsData, isSavingDb, dbSaveMessage } = AppState;
+  const { weaponsData, opticsData, commsData, ammoData, isSavingDb, dbSaveMessage } = AppState;
 
   return `
   <div class="space-y-6">
@@ -36,6 +36,10 @@ function renderDatabaseTab() {
 
     ${renderDbEditorBlock('commsData', commsData, 'תקשוב', 'text-emerald-600',
       `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.14 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/>`,
+      'נהל מספרים סידוריים לכל סוג')}
+
+    ${renderDbEditorBlock('ammoData', ammoData, 'תחמושת', 'text-amber-600',
+      `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 4h4v5h-4V4zm-1 6h6l2 10H7l2-10z"/>`,
       'נהל מספרים סידוריים לכל סוג')}
   </div>`;
 }
@@ -127,11 +131,204 @@ function dbStateLabel(stateKey) {
   if (stateKey === 'weaponsData') return 'כלי נשק';
   if (stateKey === 'opticsData') return 'אופטיקה';
   if (stateKey === 'commsData') return 'תקשוב';
+  if (stateKey === 'ammoData') return 'תחמושת';
   return stateKey;
 }
 
 function dbTypeKey(stateKey, type) {
   return `${stateKey}::${type}`;
+}
+
+function dbSafeSoldiersArray() {
+  if (Array.isArray(AppState.soldiersData)) return AppState.soldiersData.filter(Boolean);
+  if (AppState.soldiersData && typeof AppState.soldiersData === 'object') return Object.values(AppState.soldiersData).filter(Boolean);
+  return [];
+}
+
+function dbSoldierDisplayNameByKey(soldierKey) {
+  const key = String(soldierKey || '').trim();
+  if (!key) return '';
+  const soldiers = dbSafeSoldiersArray();
+  const byId = soldiers.find((s) => String((s && s.id) || '').trim() === key);
+  if (byId && byId.name) return String(byId.name);
+  const byName = soldiers.find((s) => String((s && s.name) || '').trim() === key);
+  if (byName && byName.name) return String(byName.name);
+  return key;
+}
+
+function dbGetGeneralTableHoldersForSerial(stateKey, type, serial) {
+  const assignments = AppState.generalTableAssignments || {};
+  const serialStr = String(serial || '').trim();
+  const typeStr = String(type || '').trim();
+  if (!serialStr) return [];
+
+  const holders = [];
+  Object.keys(assignments).forEach((soldierKey) => {
+    const row = assignments[soldierKey] || {};
+    let isMatch = false;
+    if (stateKey === 'opticsData') {
+      isMatch = String(row.amralType || '').trim() === typeStr && String(row.amralSerial || '').trim() === serialStr;
+    } else if (stateKey === 'commsData') {
+      const isCommMatch = String(row.commType || '').trim() === typeStr && String(row.commSerial || '').trim() === serialStr;
+      const isMultitoolMatch = String(row.multitoolType || '').trim() === typeStr && String(row.multitoolSerial || '').trim() === serialStr;
+      isMatch = isCommMatch || isMultitoolMatch;
+    } else if (stateKey === 'ammoData' && typeStr === 'רימון רסס') {
+      const frag1 = String(row.fragGrenade1 || row.fragGrenade || '').trim();
+      const frag2 = String(row.fragGrenade2 || '').trim();
+      isMatch = frag1 === serialStr || frag2 === serialStr;
+    }
+    if (isMatch) holders.push(dbSoldierDisplayNameByKey(soldierKey));
+  });
+
+  return Array.from(new Set(holders.filter(Boolean)));
+}
+
+function dbGetGeneralTableHoldersForType(stateKey, type) {
+  const assignments = AppState.generalTableAssignments || {};
+  const typeStr = String(type || '').trim();
+  const holders = [];
+
+  Object.keys(assignments).forEach((soldierKey) => {
+    const row = assignments[soldierKey] || {};
+    let isMatch = false;
+    if (stateKey === 'opticsData') {
+      isMatch = String(row.amralType || '').trim() === typeStr && String(row.amralSerial || '').trim() !== '';
+    } else if (stateKey === 'commsData') {
+      const isCommMatch = String(row.commType || '').trim() === typeStr && String(row.commSerial || '').trim() !== '';
+      const isMultitoolMatch = String(row.multitoolType || '').trim() === typeStr && String(row.multitoolSerial || '').trim() !== '';
+      isMatch = isCommMatch || isMultitoolMatch;
+    } else if (stateKey === 'ammoData' && typeStr === 'רימון רסס') {
+      const frag1 = String(row.fragGrenade1 || row.fragGrenade || '').trim();
+      const frag2 = String(row.fragGrenade2 || '').trim();
+      isMatch = frag1 !== '' || frag2 !== '';
+    }
+    if (isMatch) holders.push(dbSoldierDisplayNameByKey(soldierKey));
+  });
+
+  return Array.from(new Set(holders.filter(Boolean)));
+}
+
+function dbIsGeneralTableRowEmpty(row) {
+  if (!row) return true;
+  return !String(row.amralType || '').trim()
+    && !String(row.amralSerial || '').trim()
+    && !String(row.commType || '').trim()
+    && !String(row.commSerial || '').trim()
+    && !String(row.multitoolType || '').trim()
+    && !String(row.multitoolSerial || '').trim()
+    && !String(row.fragGrenade1 || row.fragGrenade || '').trim()
+    && !String(row.fragGrenade2 || '').trim();
+}
+
+function dbCleanupGeneralTableAfterSerialRemoval(stateKey, type, serial) {
+  const assignments = AppState.generalTableAssignments || {};
+  const serialStr = String(serial || '').trim();
+  const typeStr = String(type || '').trim();
+  if (!serialStr) return { nextAssignments: assignments, affectedSoldiers: [] };
+
+  const nextAssignments = { ...assignments };
+  const affectedSoldiers = [];
+
+  Object.keys(assignments).forEach((soldierKey) => {
+    const row = assignments[soldierKey] || {};
+    const nextRow = { ...row };
+    let changed = false;
+
+    if (stateKey === 'opticsData') {
+      const isMatch = String(row.amralType || '').trim() === typeStr && String(row.amralSerial || '').trim() === serialStr;
+      if (isMatch) {
+        nextRow.amralType = '';
+        nextRow.amralSerial = '';
+        changed = true;
+      }
+    } else if (stateKey === 'commsData') {
+      const isCommMatch = String(row.commType || '').trim() === typeStr && String(row.commSerial || '').trim() === serialStr;
+      const isMultitoolMatch = String(row.multitoolType || '').trim() === typeStr && String(row.multitoolSerial || '').trim() === serialStr;
+      if (isCommMatch) {
+        nextRow.commType = '';
+        nextRow.commSerial = '';
+        changed = true;
+      }
+      if (isMultitoolMatch) {
+        nextRow.multitoolType = '';
+        nextRow.multitoolSerial = '';
+        changed = true;
+      }
+    } else if (stateKey === 'ammoData' && typeStr === 'רימון רסס') {
+      const frag1 = String(row.fragGrenade1 || row.fragGrenade || '').trim();
+      const frag2 = String(row.fragGrenade2 || '').trim();
+      const isMatch1 = frag1 === serialStr;
+      const isMatch2 = frag2 === serialStr;
+      if (isMatch1) {
+        nextRow.fragGrenade1 = '';
+        if (nextRow.fragGrenade !== undefined) delete nextRow.fragGrenade;
+        changed = true;
+      }
+      if (isMatch2) {
+        nextRow.fragGrenade2 = '';
+        changed = true;
+      }
+    }
+
+    if (!changed) return;
+    affectedSoldiers.push(dbSoldierDisplayNameByKey(soldierKey));
+    if (dbIsGeneralTableRowEmpty(nextRow)) delete nextAssignments[soldierKey];
+    else nextAssignments[soldierKey] = nextRow;
+  });
+
+  return { nextAssignments, affectedSoldiers: Array.from(new Set(affectedSoldiers.filter(Boolean))) };
+}
+
+function dbCleanupGeneralTableAfterTypeRemoval(stateKey, type) {
+  const assignments = AppState.generalTableAssignments || {};
+  const typeStr = String(type || '').trim();
+  const nextAssignments = { ...assignments };
+  const affectedSoldiers = [];
+
+  Object.keys(assignments).forEach((soldierKey) => {
+    const row = assignments[soldierKey] || {};
+    const nextRow = { ...row };
+    let changed = false;
+
+    if (stateKey === 'opticsData') {
+      const isMatch = String(row.amralType || '').trim() === typeStr && String(row.amralSerial || '').trim() !== '';
+      if (isMatch) {
+        nextRow.amralType = '';
+        nextRow.amralSerial = '';
+        changed = true;
+      }
+    } else if (stateKey === 'commsData') {
+      const isCommMatch = String(row.commType || '').trim() === typeStr && String(row.commSerial || '').trim() !== '';
+      const isMultitoolMatch = String(row.multitoolType || '').trim() === typeStr && String(row.multitoolSerial || '').trim() !== '';
+      if (isCommMatch) {
+        nextRow.commType = '';
+        nextRow.commSerial = '';
+        changed = true;
+      }
+      if (isMultitoolMatch) {
+        nextRow.multitoolType = '';
+        nextRow.multitoolSerial = '';
+        changed = true;
+      }
+    } else if (stateKey === 'ammoData' && typeStr === 'רימון רסס') {
+      const frag1 = String(row.fragGrenade1 || row.fragGrenade || '').trim();
+      const frag2 = String(row.fragGrenade2 || '').trim();
+      const isMatch = frag1 !== '' || frag2 !== '';
+      if (isMatch) {
+        nextRow.fragGrenade1 = '';
+        nextRow.fragGrenade2 = '';
+        if (nextRow.fragGrenade !== undefined) delete nextRow.fragGrenade;
+        changed = true;
+      }
+    }
+
+    if (!changed) return;
+    affectedSoldiers.push(dbSoldierDisplayNameByKey(soldierKey));
+    if (dbIsGeneralTableRowEmpty(nextRow)) delete nextAssignments[soldierKey];
+    else nextAssignments[soldierKey] = nextRow;
+  });
+
+  return { nextAssignments, affectedSoldiers: Array.from(new Set(affectedSoldiers.filter(Boolean))) };
 }
 
 function dbSetNewSerialInput(stateKey, type, value) {
@@ -146,7 +343,10 @@ function dbAddSerialToType(stateKey, type) {
 
   const data = { ...AppState[stateKey] };
   const current = Array.isArray(data[type]) ? data[type].map(s => String(s || '').trim()).filter(Boolean) : [];
-  if (current.includes(newSerial)) return;
+  if (current.includes(newSerial)) {
+    window.alert(`לא ניתן להוסיף: צ' ${newSerial} כבר קיים בסוג ${type}.`);
+    return;
+  }
 
   data[type] = [...current, newSerial];
   queuePendingActivity(`הוסיף פריט חדש ב-${dbStateLabel(stateKey)} (${type}) עם צ' ${newSerial}`, {
@@ -174,27 +374,57 @@ function dbRemoveSerialFromType(stateKey, type, visibleIndex) {
   const serials = (Array.isArray(data[type]) ? data[type] : []).map(s => String(s || '').trim()).filter(Boolean);
   if (visibleIndex < 0 || visibleIndex >= serials.length) return;
   const removedSerial = serials[visibleIndex];
+
+  const holders = dbGetGeneralTableHoldersForSerial(stateKey, type, removedSerial);
+  if (holders.length > 0) {
+    const msg = `הפריט ${removedSerial} מסוג ${type} חתום כרגע בטבלה הכללית על:\n${holders.join(', ')}\n\nהאם אתה בטוח שברצונך למחוק את הפריט?`;
+    if (!window.confirm(msg)) return;
+  }
+
   serials.splice(visibleIndex, 1);
   data[type] = serials;
+  const cleanup = dbCleanupGeneralTableAfterSerialRemoval(stateKey, type, removedSerial);
   queuePendingActivity(`הסיר פריט מ-${dbStateLabel(stateKey)} (${type}) עם צ' ${removedSerial}`, {
     type: 'db_remove_serial',
     category: stateKey,
     itemType: type,
     serial: removedSerial
   }, 'database');
-  setState({ [stateKey]: data });
+  if (cleanup.affectedSoldiers.length > 0) {
+    queuePendingActivity(`הסיר אוטומטית שיוך בטבלה הכללית בעקבות מחיקת ${removedSerial} (${type}) עבור: ${cleanup.affectedSoldiers.join(', ')}`, {
+      type: 'general_table_auto_cleanup',
+      category: stateKey,
+      itemType: type,
+      serial: removedSerial
+    }, 'database');
+  }
+  setState({ [stateKey]: data, generalTableAssignments: cleanup.nextAssignments });
   renderApp();
 }
 
 function dbDeleteType(stateKey, type) {
+  const holders = dbGetGeneralTableHoldersForType(stateKey, type);
+  if (holders.length > 0) {
+    const msg = `בסוג ${type} יש פריטים שחתומים כרגע בטבלה הכללית על:\n${holders.join(', ')}\n\nהאם אתה בטוח שברצונך למחוק את הסוג כולו?`;
+    if (!window.confirm(msg)) return;
+  }
+
   const data = { ...AppState[stateKey] };
   delete data[type];
-  setState({ [stateKey]: data });
+  const cleanup = dbCleanupGeneralTableAfterTypeRemoval(stateKey, type);
+  setState({ [stateKey]: data, generalTableAssignments: cleanup.nextAssignments });
   queuePendingActivity(`מחק סוג מתוך ${dbStateLabel(stateKey)}: ${type}`, {
     type: 'db_delete_type',
     category: stateKey,
     itemType: type
   }, 'database');
+  if (cleanup.affectedSoldiers.length > 0) {
+    queuePendingActivity(`הסיר אוטומטית שיוכים בטבלה הכללית בעקבות מחיקת סוג ${type} עבור: ${cleanup.affectedSoldiers.join(', ')}`, {
+      type: 'general_table_auto_cleanup_type',
+      category: stateKey,
+      itemType: type
+    }, 'database');
+  }
   renderApp();
 }
 

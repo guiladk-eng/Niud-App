@@ -38,8 +38,10 @@ function loadFirestoreData() {
       if (data.weapons)    updates.weaponsData = data.weapons;
       if (data.optics)     updates.opticsData = data.optics;
       if (data.comms)      updates.commsData = data.comms;
+      if (data.ammo)       updates.ammoData = data.ammo;
       if (data.totalStock) updates.totalStock = data.totalStock;
       if (data.soldiers)   updates.soldiersData = data.soldiers;
+      if (data.generalTableAssignments) updates.generalTableAssignments = data.generalTableAssignments;
       if (data.activityLog) updates.activityLog = data.activityLog;
       if (Object.keys(updates).length > 0) {
         setState(updates);
@@ -215,6 +217,7 @@ async function handleSaveDatabase() {
     const cleanedWeapons = clean(AppState.weaponsData);
     const cleanedOptics  = clean(AppState.opticsData);
     const cleanedComms   = clean(AppState.commsData);
+    const cleanedAmmo    = clean(AppState.ammoData);
 
     // Use update() to replace whole map fields (so deleted types are actually removed).
     // merge:true keeps old nested keys, which caused deleted weapon types to reappear.
@@ -223,19 +226,20 @@ async function handleSaveDatabase() {
       await settingsRef.update({
         weapons: cleanedWeapons,
         optics: cleanedOptics,
-        comms: cleanedComms
+        comms: cleanedComms,
+        ammo: cleanedAmmo
       });
     } catch (e) {
       if (e && e.code === 'not-found') {
-        await settingsRef.set({ weapons: cleanedWeapons, optics: cleanedOptics, comms: cleanedComms }, { merge: true });
+        await settingsRef.set({ weapons: cleanedWeapons, optics: cleanedOptics, comms: cleanedComms, ammo: cleanedAmmo }, { merge: true });
       } else {
         throw e;
       }
     }
 
     commitPendingActivity('database');
-    appendActivityLog('שמר את מסד הנתונים (נשקים/אופטיקה/תקשוב)', { type: 'save_database' });
-    setState({ weaponsData: cleanedWeapons, opticsData: cleanedOptics, commsData: cleanedComms, dbSaveMessage: 'מסד הנתונים נשמר וסונכרן בהצלחה!' });
+    appendActivityLog('שמר את מסד הנתונים (נשקים/אופטיקה/תקשוב/תחמושת)', { type: 'save_database' });
+    setState({ weaponsData: cleanedWeapons, opticsData: cleanedOptics, commsData: cleanedComms, ammoData: cleanedAmmo, dbSaveMessage: 'מסד הנתונים נשמר וסונכרן בהצלחה!' });
   } catch (e) {
     console.error(e);
     setState({ dbSaveMessage: 'שגיאה בשמירת מסד הנתונים.' });
@@ -273,6 +277,56 @@ async function handleSaveSoldiers() {
   } finally {
     setState({ isSavingSoldiers: false }); renderApp();
     setTimeout(() => { setState({ soldierSaveMessage: '' }); renderApp(); }, 4000);
+  }
+}
+
+async function handleSaveGeneralTable() {
+  setState({ isSavingGeneralTable: true });
+  renderApp();
+
+  try {
+    const source = AppState.generalTableAssignments || {};
+    const cleaned = {};
+
+    Object.keys(source).forEach((soldierKey) => {
+      const row = source[soldierKey] || {};
+      const amralType = String((row.amralType || '').trim());
+      const amralSerial = String((row.amralSerial || '').trim());
+      const commType = String((row.commType || '').trim());
+      const commSerial = String((row.commSerial || '').trim());
+      const multitoolType = String((row.multitoolType || '').trim());
+      const multitoolSerial = String((row.multitoolSerial || '').trim());
+      const fragGrenade1 = String((row.fragGrenade1 || row.fragGrenade || '').trim());
+      const fragGrenade2 = String((row.fragGrenade2 || '').trim());
+
+      if (!amralType && !amralSerial && !commType && !commSerial && !multitoolType && !multitoolSerial && !fragGrenade1 && !fragGrenade2) return;
+
+      cleaned[soldierKey] = {
+        amralType,
+        amralSerial,
+        commType,
+        commSerial,
+        multitoolType,
+        multitoolSerial,
+        fragGrenade1,
+        fragGrenade2
+      };
+    });
+
+    await getSettingsRef().set({ generalTableAssignments: cleaned }, { merge: true });
+    commitPendingActivity('generalTable');
+    appendActivityLog('שמר את הטבלה הכללית של הקצאות ציוד לחיילים', { type: 'save_general_table' });
+    setState({
+      generalTableAssignments: cleaned,
+      generalTableSaveMessage: 'הטבלה הכללית נשמרה בהצלחה!'
+    });
+  } catch (e) {
+    console.error(e);
+    setState({ generalTableSaveMessage: 'שגיאה בשמירת הטבלה הכללית.' });
+  } finally {
+    setState({ isSavingGeneralTable: false });
+    renderApp();
+    setTimeout(() => { setState({ generalTableSaveMessage: '' }); renderApp(); }, 4000);
   }
 }
 
