@@ -94,7 +94,7 @@ function renderMainApp() {
   const tabs = [
     { id: 'home',       label: 'דף הבית',               icon: 'home'      },
     { id: 'history',    label: 'היסטוריה',              icon: 'clock'     },
-    { id: 'form',       label: 'טופס מאסטר (משיכות)', icon: 'cart'      },
+    { id: 'signatures', label: 'החתמות',                icon: 'cart'      },
     { id: 'dashboard',  label: 'ספירה כללית',          icon: 'chart'     },
     { id: 'inventory',  label: 'ניהול מלאי',            icon: 'package'   },
     { id: 'categories', label: 'ניהול פריטים',          icon: 'tags'      },
@@ -118,7 +118,7 @@ function renderMainApp() {
   let tabContent = '';
   if (activeTab === 'home')            tabContent = renderHomeTab();
   else if (activeTab === 'history')    tabContent = renderHistoryTab();
-  else if (activeTab === 'form')       tabContent = renderFormTab();
+  else if (activeTab === 'signatures') tabContent = renderSignaturesTab();
   else if (activeTab === 'dashboard')  tabContent = renderDashboardTab();
   else if (activeTab === 'inventory')  tabContent = renderInventoryTab();
   else if (activeTab === 'categories') tabContent = renderCategoriesTab();
@@ -140,7 +140,7 @@ function renderMainApp() {
   <div class="min-h-screen bg-gray-50 font-sans text-slate-800 pb-20" dir="rtl">
 
     <!-- Header: bg-blue-700, max-w-4xl (matches source exactly) -->
-    <header class="bg-blue-700 text-white shadow-md sticky top-0 z-10">
+    <header class="bg-blue-700 text-white shadow-md sticky top-0 z-50">
       <div class="max-w-4xl mx-auto px-4 py-4">
         <div class="flex justify-between items-center">
           <h1 class="text-2xl font-bold flex items-center gap-2">
@@ -175,6 +175,7 @@ function renderMainApp() {
 }
 
 function setActiveTab(tab) {
+  if (tab === 'form') tab = 'signatures';
   setState({ activeTab: tab });
   renderApp();
 }

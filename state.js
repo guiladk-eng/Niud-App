@@ -87,6 +87,8 @@ const AppState = {
   generalTableAssignments: {},
   generalTableFilters: { amral: '', comm: '', multitool: '', frag: '', weaponType: '', weaponSerial: '' },
   generalTableSearchTerm: '',
+  generalTableHideWeaponColumns: true,
+  generalTableSelectedTeams: [],
 
   // New soldier form
   newSoldier: { name: '', id: '', department: '', isMaplag: false }

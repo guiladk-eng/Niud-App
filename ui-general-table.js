@@ -286,20 +286,34 @@ function renderGeneralTableFragOptions(options, currentValue) {
 
 function getGeneralTableFiltersSafe() {
   const f = AppState.generalTableFilters || {};
+  const asString = (v) => Array.isArray(v) ? String(v[0] || '') : String(v || '');
   return {
-    amral: String(f.amral || ''),
-    comm: String(f.comm || ''),
-    multitool: String(f.multitool || ''),
-    frag: String(f.frag || ''),
-    weaponType: String(f.weaponType || ''),
-    weaponSerial: String(f.weaponSerial || '')
+    amral: asString(f.amral),
+    comm: asString(f.comm),
+    multitool: asString(f.multitool),
+    frag: asString(f.frag),
+    weaponType: asString(f.weaponType),
+    weaponSerial: asString(f.weaponSerial)
   };
 }
 
-function setGeneralTableFilter(field, value) {
+function setGeneralTableFilter(field, values) {
   const current = getGeneralTableFiltersSafe();
-  setState({ generalTableFilters: { ...current, [field]: String(value || '') } });
+  const value = Array.isArray(values) ? (values[0] || '') : (values || '');
+  const scrollSnapshot = getGeneralTableScrollSnapshot();
+  setState({ generalTableFilters: { ...current, [field]: String(value) } });
   renderApp();
+  restoreGeneralTableScrollSnapshot(scrollSnapshot);
+}
+
+function toggleGeneralTableTeamSelection(teamName) {
+  const selected = Array.isArray(AppState.generalTableSelectedTeams) ? AppState.generalTableSelectedTeams : [];
+  const exists = selected.includes(teamName);
+  const next = exists ? selected.filter((t) => t !== teamName) : [...selected, teamName];
+  const scrollSnapshot = getGeneralTableScrollSnapshot();
+  setState({ generalTableSelectedTeams: next });
+  renderApp();
+  restoreGeneralTableScrollSnapshot(scrollSnapshot);
 }
 
 function matchGeneralTableFilterValue(type, serial) {
@@ -309,10 +323,15 @@ function matchGeneralTableFilterValue(type, serial) {
   return `${encodeURIComponent(typeStr)}::${encodeURIComponent(serialStr)}`;
 }
 
+function isGeneralTableTeamSelected(teamName) {
+  const selected = Array.isArray(AppState.generalTableSelectedTeams) ? AppState.generalTableSelectedTeams : [];
+  return selected.includes(teamName);
+}
+
 function isGeneralTableFilterMatch(filterValue, hasValue, currentValue) {
-  if (!filterValue) return true; // no filtering on this column
-  if (filterValue === '__ALL__') return !!hasValue; // keep only rows with any value
-  return currentValue === filterValue; // exact serial/type match
+  if (!filterValue) return true;
+  if (filterValue === '__ALL__') return !!hasValue;
+  return currentValue === filterValue;
 }
 
 function isGeneralTableFragFilterMatch(filterValue, fragSerial1, fragSerial2) {
@@ -375,8 +394,14 @@ function setGeneralTableSearchTerm(inputElOrValue) {
   }
 }
 
+function toggleGeneralTableWeaponColumns() {
+  setState({ generalTableHideWeaponColumns: !AppState.generalTableHideWeaponColumns });
+  renderApp();
+}
+
 function renderGeneralTableTab() {
   const { isSavingGeneralTable, generalTableSaveMessage, generalTableNotice } = AppState;
+  const hideWeaponColumns = !!AppState.generalTableHideWeaponColumns;
   const allowedAmralTypes = ['שח"ם', 'ליאור', 'עכבר', 'שח"ע', 'NYX', 'מיקרון'];
   const allowedCommTypes = ['קשר 710'];
   const allowedMultitoolTypes = ['אולר'];
@@ -405,10 +430,16 @@ function renderGeneralTableTab() {
   });
   const weaponTypeOptions = Array.from(weaponTypeSet).sort((a, b) => a.localeCompare(b, 'he'));
   const weaponSerialOptions = Array.from(weaponSerialSet).sort((a, b) => a.localeCompare(b, 'he'));
+  const teamOptions = Array.from(new Set(
+    soldiers.map((s) => String((s && s.department) || '').trim()).filter(Boolean)
+  )).sort((a, b) => a.localeCompare(b, 'he'));
+  const tableColCount = hideWeaponColumns ? 6 : 9;
+  const selectedTeams = Array.isArray(AppState.generalTableSelectedTeams) ? AppState.generalTableSelectedTeams : [];
 
   const filteredSoldiers = soldiers.filter((soldier) => {
     const soldierKey = getGeneralTableSoldierKey(soldier);
     const ass = (AppState.generalTableAssignments && AppState.generalTableAssignments[soldierKey]) || {};
+    const team = String((soldier && soldier.department) || '').trim();
     const name = String((soldier && soldier.name) || '').toLowerCase();
     const personalId = String((soldier && soldier.id) || '').toLowerCase();
     const matchesSearch = !searchTerm || name.includes(searchTerm) || personalId.includes(searchTerm);
@@ -424,6 +455,8 @@ function renderGeneralTableTab() {
     const fragCurrentValue1 = String(ass.fragGrenade1 || ass.fragGrenade || '').trim();
     const fragCurrentValue2 = String(ass.fragGrenade2 || '').trim();
 
+    if (selectedTeams.length > 0 && !selectedTeams.includes(team)) return false;
+
     return isGeneralTableSimpleFilterMatch(filters.weaponType, weaponTypes)
       && isGeneralTableSimpleFilterMatch(filters.weaponSerial, weaponSerials)
       && isGeneralTableFilterMatch(filters.amral, amralCurrentValue !== '', amralCurrentValue)
@@ -434,15 +467,23 @@ function renderGeneralTableTab() {
 
   return `
   <div class="space-y-6">
-    <div class="bg-white p-4 rounded-xl shadow-md border border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sticky top-44 z-10">
+    <div class="bg-white p-4 rounded-xl shadow-md border border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sticky top-56 z-0">
       <div>
         <h2 class="text-lg font-bold text-slate-700">טבלה כללית</h2>
         <p class="text-sm text-slate-500">מעקב וניהול הקצאות אמר"ל, קשר ורימוני רסס לכל חייל.</p>
       </div>
-      <button onclick="handleSaveGeneralTable()" ${isSavingGeneralTable ? 'disabled' : ''}
-        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-bold flex items-center justify-center gap-2 shadow-sm transition-colors disabled:bg-slate-300 w-full sm:w-auto">
-        ${isSavingGeneralTable ? 'שומר...' : `שמור שינויים <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>`}
-      </button>
+      <div class="flex gap-2 w-full sm:w-auto">
+        <button onclick="toggleGeneralTableWeaponColumns()"
+          class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2.5 rounded-lg font-bold flex items-center justify-center gap-2 shadow-sm transition-colors border border-slate-300 flex-1 sm:flex-none">
+          ${hideWeaponColumns
+            ? `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> תצוגה מורחבת`
+            : `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a9.97 9.97 0 012.159-3.383M6.223 6.223A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.542 7a10.024 10.024 0 01-4.132 5.411M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3l18 18"/></svg> תצוגה מצומצמת`}
+        </button>
+        <button onclick="handleSaveGeneralTable()" ${isSavingGeneralTable ? 'disabled' : ''}
+          class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-bold flex items-center justify-center gap-2 shadow-sm transition-colors disabled:bg-slate-300 flex-1 sm:flex-none">
+          ${isSavingGeneralTable ? 'שומר...' : `שמור שינויים <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>`}
+        </button>
+      </div>
     </div>
 
     ${generalTableSaveMessage ? `<div class="bg-green-100 text-green-700 p-4 rounded-lg font-medium shadow-sm">${escH(generalTableSaveMessage)}</div>` : ''}
@@ -459,6 +500,19 @@ function renderGeneralTableTab() {
           placeholder="הקלד שם או מספר אישי..."
           class="w-full border border-slate-300 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
         />
+      </div>
+      <div class="mb-3">
+        <label class="block text-xs font-bold text-slate-600 mb-2">צוותים</label>
+        <div class="flex flex-wrap gap-2">
+          ${teamOptions.map((team) => `
+            <button
+              type="button"
+              onclick="toggleGeneralTableTeamSelection(decodeURIComponent('${encodeURIComponent(team)}'))"
+              class="px-3 py-1.5 rounded-lg text-sm font-bold border transition-colors ${isGeneralTableTeamSelected(team) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'}">
+              ${escH(team)}
+            </button>
+          `).join('')}
+        </div>
       </div>
       <h3 class="text-sm font-bold text-slate-700 mb-3">סינון</h3>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
@@ -515,14 +569,14 @@ function renderGeneralTableTab() {
 
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
       <div id="general-table-scroll-wrap" class="overflow-x-auto">
-        <table class="w-full text-right border-collapse min-w-[1100px]">
+        <table class="w-full text-right border-collapse ${hideWeaponColumns ? 'min-w-[900px]' : 'min-w-[1100px]'}">
           <thead>
             <tr class="bg-slate-100 text-slate-600 text-sm">
               <th class="p-3 border-b border-slate-200 bg-slate-100">שם</th>
               <th class="p-3 border-b border-slate-200">צוות</th>
-              <th class="p-3 border-b border-slate-200">מ.א</th>
-              <th class="p-3 border-b border-slate-200">סוג נשק</th>
-              <th class="p-3 border-b border-slate-200">צ' נשק</th>
+              ${hideWeaponColumns ? '' : `<th class="p-3 border-b border-slate-200">מ.א</th>`}
+              ${hideWeaponColumns ? '' : `<th class="p-3 border-b border-slate-200">סוג נשק</th>`}
+              ${hideWeaponColumns ? '' : `<th class="p-3 border-b border-slate-200">צ' נשק</th>`}
               <th class="p-3 border-b border-slate-200">אמר"ל</th>
               <th class="p-3 border-b border-slate-200">קשר</th>
               <th class="p-3 border-b border-slate-200">אולר</th>
@@ -532,7 +586,7 @@ function renderGeneralTableTab() {
           <tbody>
             ${filteredSoldiers.length === 0 ? `
               <tr>
-                <td colspan="9" class="p-6 text-center text-slate-500">לא נמצאו חיילים לפי הסינון שנבחר.</td>
+                <td colspan="${tableColCount}" class="p-6 text-center text-slate-500">לא נמצאו חיילים לפי הסינון שנבחר.</td>
               </tr>
             ` : filteredSoldiers.map((soldier, rowIdx) => {
               const soldierKey = getGeneralTableSoldierKey(soldier);
@@ -555,9 +609,9 @@ function renderGeneralTableTab() {
               <tr class="border-b border-slate-100 hover:bg-slate-50">
                 <td class="p-2 text-slate-800 font-medium bg-white border-l border-slate-200">${escH(soldier.name || '-')}</td>
                 <td class="p-2 text-slate-700">${escH(soldier.department || '-')}</td>
-                <td class="p-2 font-mono text-slate-700">${escH(soldier.id || '-')}</td>
-                <td class="p-2 text-slate-700">${escH(weaponTypes)}</td>
-                <td class="p-2 font-mono text-slate-700">${escH(weaponSerials)}</td>
+                ${hideWeaponColumns ? '' : `<td class="p-2 font-mono text-slate-700">${escH(soldier.id || '-')}</td>`}
+                ${hideWeaponColumns ? '' : `<td class="p-2 text-slate-700">${escH(weaponTypes)}</td>`}
+                ${hideWeaponColumns ? '' : `<td class="p-2 font-mono text-slate-700">${escH(weaponSerials)}</td>`}
                 <td class="p-2">
                   <select
                     onchange="handleGeneralTableSelectChange(decodeURIComponent('${encodeURIComponent(soldierKey)}'),'amral',this.value)"

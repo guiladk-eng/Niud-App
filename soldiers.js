@@ -125,6 +125,10 @@ function handleUpdateSoldier(index, field, value) {
 function handleRemoveSoldier(index) {
   const arr = Array.isArray(AppState.soldiersData) ? AppState.soldiersData : Object.values(AppState.soldiersData || {});
   const removed = arr[index];
+  if (removed) {
+    const confirmMsg = `האם אתה בטוח שברצונך למחוק את החייל ${removed.name || ''} (${removed.id || ''})?`;
+    if (!window.confirm(confirmMsg)) return;
+  }
   setState({ soldiersData: arr.filter((_, i) => i !== index) });
   if (removed) {
     queuePendingActivity(`הסיר חייל: ${removed.name || ''} (${removed.id || ''})`, {
