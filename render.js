@@ -79,7 +79,7 @@ function renderLoginScreen() {
             class="w-full border border-slate-300 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"/>
         </div>
         <button onclick="handleLogin(event)"
-          class="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-3.5 rounded-xl mt-6 shadow-md hover:shadow-lg transition-all">
+          class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-xl mt-6 shadow-md hover:shadow-lg transition-all">
           כניסה למערכת
         </button>
       </div>

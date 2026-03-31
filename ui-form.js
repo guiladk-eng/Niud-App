@@ -9,7 +9,7 @@ function renderFormTab() {
     opticsData, selectedOpticType, selectedOpticSerial, cartOptics, originalOptics,
     commsData, selectedCommType, selectedCommSerial, cartComms, originalComms,
     isSubmitting
-  } = AppState;
+  } = AppStatewwwwwww;
 
   const totalItemsInCart = getTotalItemsInCart();
   const allFormSoldiers = Array.isArray(AppState.soldiersData)

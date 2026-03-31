@@ -39,6 +39,7 @@ function loadFirestoreData() {
       if (data.optics)     updates.opticsData = data.optics;
       if (data.comms)      updates.commsData = data.comms;
       if (data.ammo)       updates.ammoData = data.ammo;
+      if (Array.isArray(data.cameraItemsTable)) updates.cameraItemsTable = data.cameraItemsTable;
       if (data.totalStock) updates.totalStock = data.totalStock;
       if (data.soldiers)   updates.soldiersData = data.soldiers;
       if (data.generalTableAssignments) updates.generalTableAssignments = data.generalTableAssignments;
@@ -218,6 +219,14 @@ async function handleSaveDatabase() {
     const cleanedOptics  = clean(AppState.opticsData);
     const cleanedComms   = clean(AppState.commsData);
     const cleanedAmmo    = clean(AppState.ammoData);
+    const cleanedCameraItemsTable = (Array.isArray(AppState.cameraItemsTable) ? AppState.cameraItemsTable : [])
+      .map((row) => ({
+        civilMilitary: String((row && row.civilMilitary) || '').trim(),
+        marking: String((row && row.marking) || '').trim(),
+        medium: String((row && row.medium) || '').trim(),
+        serial: String((row && row.serial) || '').trim()
+      }))
+      .filter((row) => row.civilMilitary && row.marking && row.medium && row.serial);
 
     // Use update() to replace whole map fields (so deleted types are actually removed).
     // merge:true keeps old nested keys, which caused deleted weapon types to reappear.
@@ -227,11 +236,12 @@ async function handleSaveDatabase() {
         weapons: cleanedWeapons,
         optics: cleanedOptics,
         comms: cleanedComms,
-        ammo: cleanedAmmo
+        ammo: cleanedAmmo,
+        cameraItemsTable: cleanedCameraItemsTable
       });
     } catch (e) {
       if (e && e.code === 'not-found') {
-        await settingsRef.set({ weapons: cleanedWeapons, optics: cleanedOptics, comms: cleanedComms, ammo: cleanedAmmo }, { merge: true });
+        await settingsRef.set({ weapons: cleanedWeapons, optics: cleanedOptics, comms: cleanedComms, ammo: cleanedAmmo, cameraItemsTable: cleanedCameraItemsTable }, { merge: true });
       } else {
         throw e;
       }
@@ -239,7 +249,14 @@ async function handleSaveDatabase() {
 
     commitPendingActivity('database');
     appendActivityLog('שמר את מסד הנתונים (נשקים/אופטיקה/תקשוב/תחמושת)', { type: 'save_database' });
-    setState({ weaponsData: cleanedWeapons, opticsData: cleanedOptics, commsData: cleanedComms, ammoData: cleanedAmmo, dbSaveMessage: 'מסד הנתונים נשמר וסונכרן בהצלחה!' });
+    setState({
+      weaponsData: cleanedWeapons,
+      opticsData: cleanedOptics,
+      commsData: cleanedComms,
+      ammoData: cleanedAmmo,
+      cameraItemsTable: cleanedCameraItemsTable,
+      dbSaveMessage: 'מסד הנתונים נשמר וסונכרן בהצלחה!'
+    });
   } catch (e) {
     console.error(e);
     setState({ dbSaveMessage: 'שגיאה בשמירת מסד הנתונים.' });

@@ -57,21 +57,63 @@ function getGeneralTableSelectionOptions(dataObj, allowedTypes) {
       .map((serial) => String(serial || '').trim())
       .filter(Boolean)
       .forEach((serial) => {
-        options.push({ type: typeLabel, serial, value: `${encodeURIComponent(typeLabel)}::${encodeURIComponent(serial)}` });
+        options.push({
+          type: typeLabel,
+          serial,
+          label: getGeneralTableMediumMarkingLabel(typeLabel, serial),
+          value: `${encodeURIComponent(typeLabel)}::${encodeURIComponent(serial)}`
+        });
       });
   });
   return options;
 }
 
+function getGeneralTableMediumMarkingLabel(typeLabel, serial) {
+  const table = Array.isArray(AppState.cameraItemsTable) ? AppState.cameraItemsTable : [];
+  const typeStr = String(typeLabel || '').trim();
+  const serialStr = String(serial || '').trim();
+  const match = table.find((row) =>
+    String((row && row.medium) || '').trim() === typeStr &&
+    String((row && row.serial) || '').trim() === serialStr
+  );
+  const marking = String((match && match.marking) || '').trim();
+  if (marking) return `${typeStr} | ${marking}`;
+  return `${typeStr} | ${serialStr}`;
+}
+
 function setGeneralTableNotice(message) {
+  const scrollSnapshot = getGeneralTableScrollSnapshot();
   setState({ generalTableNotice: message || '' });
   renderApp();
+  restoreGeneralTableScrollSnapshot(scrollSnapshot);
   clearTimeout(window.__generalTableNoticeTimer);
   if (message) {
     window.__generalTableNoticeTimer = setTimeout(() => {
+      const nextScrollSnapshot = getGeneralTableScrollSnapshot();
       setState({ generalTableNotice: '' });
       renderApp();
+      restoreGeneralTableScrollSnapshot(nextScrollSnapshot);
     }, 3500);
+  }
+}
+
+function getGeneralTableScrollSnapshot() {
+  const el = document.getElementById('general-table-scroll-wrap');
+  if (!el) return null;
+  return { left: el.scrollLeft, top: el.scrollTop };
+}
+
+function restoreGeneralTableScrollSnapshot(snapshot) {
+  if (!snapshot) return;
+  const apply = () => {
+    const el = document.getElementById('general-table-scroll-wrap');
+    if (!el) return;
+    el.scrollLeft = snapshot.left;
+    el.scrollTop = snapshot.top;
+  };
+  apply();
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(apply);
   }
 }
 
@@ -112,6 +154,7 @@ function getGeneralTableSoldierNameByKey(soldierKey) {
 function handleGeneralTableSelectChange(soldierKey, field, rawValue) {
   const key = String(soldierKey || '').trim();
   if (!key) return;
+  const scrollSnapshot = getGeneralTableScrollSnapshot();
 
   const assignments = { ...(AppState.generalTableAssignments || {}) };
   const current = { ...(assignments[key] || {}) };
@@ -220,6 +263,7 @@ function handleGeneralTableSelectChange(soldierKey, field, rawValue) {
 
   setState({ generalTableAssignments: assignments, generalTableNotice: '' });
   renderApp();
+  restoreGeneralTableScrollSnapshot(scrollSnapshot);
 }
 
 function renderGeneralTableSelectOptions(options, currentValue, currentLabel) {
@@ -227,7 +271,7 @@ function renderGeneralTableSelectOptions(options, currentValue, currentLabel) {
   if (currentValue && !options.find((opt) => opt.value === currentValue)) {
     html += `<option value="${escH(currentValue)}" selected>${escH(currentLabel)} (לא קיים במסד)</option>`;
   }
-  html += options.map((opt) => `<option value="${escH(opt.value)}" ${opt.value === currentValue ? 'selected' : ''}>${escH(`${opt.type} | ${opt.serial}`)}</option>`).join('');
+  html += options.map((opt) => `<option value="${escH(opt.value)}" ${opt.value === currentValue ? 'selected' : ''}>${escH(opt.label || `${opt.type} | ${opt.serial}`)}</option>`).join('');
   return html;
 }
 
@@ -470,7 +514,7 @@ function renderGeneralTableTab() {
     </div>
 
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      <div class="overflow-x-auto">
+      <div id="general-table-scroll-wrap" class="overflow-x-auto">
         <table class="w-full text-right border-collapse min-w-[1100px]">
           <thead>
             <tr class="bg-slate-100 text-slate-600 text-sm">
@@ -498,11 +542,11 @@ function renderGeneralTableTab() {
               const weaponTypes = weapons.map((w) => w.type).join(', ') || '-';
               const weaponSerials = weapons.map((w) => w.serial).join(', ') || '-';
               const amralValue = ass.amralType && ass.amralSerial ? `${encodeURIComponent(ass.amralType)}::${encodeURIComponent(ass.amralSerial)}` : '';
-              const amralLabel = ass.amralType && ass.amralSerial ? `${ass.amralType} | ${ass.amralSerial}` : '';
+              const amralLabel = ass.amralType && ass.amralSerial ? getGeneralTableMediumMarkingLabel(ass.amralType, ass.amralSerial) : '';
               const commValue = ass.commType && ass.commSerial ? `${encodeURIComponent(ass.commType)}::${encodeURIComponent(ass.commSerial)}` : '';
-              const commLabel = ass.commType && ass.commSerial ? `${ass.commType} | ${ass.commSerial}` : '';
+              const commLabel = ass.commType && ass.commSerial ? getGeneralTableMediumMarkingLabel(ass.commType, ass.commSerial) : '';
               const multitoolValue = ass.multitoolType && ass.multitoolSerial ? `${encodeURIComponent(ass.multitoolType)}::${encodeURIComponent(ass.multitoolSerial)}` : '';
-              const multitoolLabel = ass.multitoolType && ass.multitoolSerial ? `${ass.multitoolType} | ${ass.multitoolSerial}` : '';
+              const multitoolLabel = ass.multitoolType && ass.multitoolSerial ? getGeneralTableMediumMarkingLabel(ass.multitoolType, ass.multitoolSerial) : '';
               const fragValue1 = String(ass.fragGrenade1 || ass.fragGrenade || '');
               const fragValue2 = String(ass.fragGrenade2 || '');
               const fragListId1 = `general-table-frag1-list-${rowIdx}`;

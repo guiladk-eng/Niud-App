@@ -67,6 +67,8 @@ const AppState = {
   dbSaveMessage: '',
   dbExpandedTypes: {},
   dbNewSerialInputs: {},
+  cameraItemsTable: [],
+  dbCameraNewItem: { civilMilitary: '', marking: '', medium: '', serial: '' },
   isSavingStock: false,
   stockSaveMessage: '',
   isSavingSoldiers: false,

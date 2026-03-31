@@ -3,6 +3,10 @@
 
 function renderDatabaseTab() {
   const { weaponsData, opticsData, commsData, ammoData, isSavingDb, dbSaveMessage } = AppState;
+  const cameraItems = Array.isArray(AppState.cameraItemsTable) ? AppState.cameraItemsTable : [];
+  const newCameraItem = AppState.dbCameraNewItem || { civilMilitary: '', marking: '', medium: '', serial: '' };
+  const cameraMediumOptions = dbGetAvailableCameraMediumOptions();
+  const cameraSerialOptions = dbGetSerialOptionsForMedium(newCameraItem.medium);
 
   return `
   <div class="space-y-6">
@@ -41,6 +45,81 @@ function renderDatabaseTab() {
     ${renderDbEditorBlock('ammoData', ammoData, 'תחמושת', 'text-amber-600',
       `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 4h4v5h-4V4zm-1 6h6l2 10H7l2-10z"/>`,
       'נהל מספרים סידוריים לכל סוג')}
+
+    ${renderCameraItemsTableBlock(cameraItems, newCameraItem, cameraMediumOptions, cameraSerialOptions)}
+  </div>`;
+}
+
+function renderCameraItemsTableBlock(cameraItems, newCameraItem, cameraMediumOptions, cameraSerialOptions) {
+  return `
+  <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-6">
+    <h2 class="text-lg font-bold text-slate-700 mb-3">טבלת אמצעים</h2>
+    <div class="overflow-x-auto border border-slate-200 rounded-lg">
+      <table class="w-full text-right border-collapse min-w-[720px]">
+        <thead>
+          <tr class="bg-slate-100 text-slate-600 text-sm">
+            <th class="p-3 border-b border-slate-200">אזרחי/צבאי</th>
+            <th class="p-3 border-b border-slate-200">סימון</th>
+            <th class="p-3 border-b border-slate-200">אמצעי</th>
+            <th class="p-3 border-b border-slate-200">צ'</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${cameraItems.length === 0 ? `
+            <tr>
+              <td colspan="4" class="p-4 text-slate-500 text-center">הטבלה ריקה כרגע. הוסף שורה חדשה למטה.</td>
+            </tr>
+          ` : cameraItems.map((row) => `
+            <tr class="border-b border-slate-100">
+              <td class="p-2">${escH(row.civilMilitary || '')}</td>
+              <td class="p-2">${escH(row.marking || '')}</td>
+              <td class="p-2">${escH(row.medium || '')}</td>
+              <td class="p-2 font-mono">${escH(row.serial || '')}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-3">
+      <select
+        onchange="dbSetCameraNewItemField('civilMilitary',this.value)"
+        class="border border-slate-300 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+        <option value="" ${!newCameraItem.civilMilitary ? 'selected' : ''}>בחר אזרחי/צבאי...</option>
+        <option value="אזרחי" ${newCameraItem.civilMilitary === 'אזרחי' ? 'selected' : ''}>אזרחי</option>
+        <option value="צבאי" ${newCameraItem.civilMilitary === 'צבאי' ? 'selected' : ''}>צבאי</option>
+      </select>
+      <input
+        id="db-camera-marking-input"
+        value="${escH(newCameraItem.marking || '')}"
+        oninput="dbHandleCameraMarkingInput(this)"
+        placeholder="סימון"
+        class="border border-slate-300 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+      />
+      <select
+        onchange="dbSetCameraNewItemField('medium',this.value)"
+        class="border border-slate-300 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+        <option value="" ${!newCameraItem.medium ? 'selected' : ''}>בחר אמצעי...</option>
+        ${cameraMediumOptions.map((medium) => `<option value="${escH(medium)}" ${newCameraItem.medium === medium ? 'selected' : ''}>${escH(medium)}</option>`).join('')}
+      </select>
+      <div class="flex gap-2">
+        <select
+          onchange="dbSetCameraNewItemField('serial',this.value)"
+          onkeydown="if(event.key==='Enter'){dbAddCameraItemRow()}"
+          class="flex-1 border border-slate-300 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+          ${!newCameraItem.medium ? 'disabled' : ''}>
+          <option value="" ${!newCameraItem.serial ? 'selected' : ''}>
+            ${newCameraItem.medium ? 'בחר צ\'...' : 'בחר קודם אמצעי'}
+          </option>
+          ${cameraSerialOptions.map((serial) => `<option value="${escH(serial)}" ${newCameraItem.serial === serial ? 'selected' : ''}>${escH(serial)}</option>`).join('')}
+        </select>
+        <button onclick="dbAddCameraItemRow()"
+          class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-bold">
+          הוסף
+        </button>
+      </div>
+    </div>
+    <div class="text-xs text-slate-500 mt-2">כדי להוסיף שורה חייבים למלא את כל 4 התאים. צ' נבחר מתוך הצ'ים של האמצעי שנבחר בניהול צלמים.</div>
   </div>`;
 }
 
@@ -137,6 +216,103 @@ function dbStateLabel(stateKey) {
 
 function dbTypeKey(stateKey, type) {
   return `${stateKey}::${type}`;
+}
+
+function dbSetCameraNewItemField(field, value) {
+  const current = AppState.dbCameraNewItem || { civilMilitary: '', marking: '', medium: '', serial: '' };
+  const next = { ...current, [field]: value };
+  if (field === 'medium') next.serial = '';
+  setState({ dbCameraNewItem: next });
+  renderApp();
+}
+
+function dbHandleCameraMarkingInput(inputEl) {
+  const value = inputEl ? inputEl.value : '';
+  const cursorPos = inputEl && typeof inputEl.selectionStart === 'number'
+    ? inputEl.selectionStart
+    : String(value).length;
+
+  const current = AppState.dbCameraNewItem || { civilMilitary: '', marking: '', medium: '', serial: '' };
+  setState({ dbCameraNewItem: { ...current, marking: value } });
+  renderApp();
+
+  const nextInput = document.getElementById('db-camera-marking-input');
+  if (!nextInput) return;
+  nextInput.focus();
+  const pos = Math.min(cursorPos, nextInput.value.length);
+  try {
+    nextInput.setSelectionRange(pos, pos);
+  } catch (_) {
+    // ignore environments that do not support selection APIs
+  }
+}
+
+function dbGetAvailableCameraMediumOptions() {
+  const pools = [AppState.weaponsData || {}, AppState.opticsData || {}, AppState.commsData || {}, AppState.ammoData || {}];
+  const types = [];
+  pools.forEach((pool) => {
+    Object.keys(pool).forEach((type) => {
+      const cleaned = String(type || '').trim();
+      if (cleaned) types.push(cleaned);
+    });
+  });
+  return Array.from(new Set(types)).sort((a, b) => a.localeCompare(b, 'he'));
+}
+
+function dbGetSerialOptionsForMedium(medium) {
+  const type = String(medium || '').trim();
+  if (!type) return [];
+  const pools = [AppState.weaponsData || {}, AppState.opticsData || {}, AppState.commsData || {}, AppState.ammoData || {}];
+  let serials = [];
+  pools.forEach((pool) => {
+    if (Array.isArray(pool[type])) serials = serials.concat(pool[type]);
+  });
+  return Array.from(new Set(serials.map((s) => String(s || '').trim()).filter(Boolean)));
+}
+
+function dbAddCameraItemRow() {
+  const current = AppState.dbCameraNewItem || {};
+  const row = {
+    civilMilitary: String(current.civilMilitary || '').trim(),
+    marking: String(current.marking || '').trim(),
+    medium: String(current.medium || '').trim(),
+    serial: String(current.serial || '').trim()
+  };
+  if (!row.civilMilitary || !row.marking || !row.medium || !row.serial) {
+    window.alert('יש למלא את כל ארבעת השדות לפני הוספת שורה.');
+    return;
+  }
+  const availableMediums = dbGetAvailableCameraMediumOptions();
+  if (!availableMediums.includes(row.medium)) {
+    window.alert('יש לבחור אמצעי מתוך הרשימה.');
+    return;
+  }
+  const allowedSerials = dbGetSerialOptionsForMedium(row.medium);
+  if (!allowedSerials.includes(row.serial)) {
+    window.alert('יש לבחור צ\' מתוך האפשרויות של האמצעי שנבחר.');
+    return;
+  }
+
+  const table = Array.isArray(AppState.cameraItemsTable) ? AppState.cameraItemsTable : [];
+  const duplicate = table.find((r) =>
+    String((r && r.medium) || '').trim() === row.medium &&
+    String((r && r.serial) || '').trim() === row.serial
+  );
+  if (duplicate) {
+    window.alert('שורה עם אותו אמצעי וצ\' כבר קיימת בטבלה.');
+    return;
+  }
+
+  setState({
+    cameraItemsTable: [...table, row],
+    dbCameraNewItem: { civilMilitary: '', marking: '', medium: '', serial: '' }
+  });
+  queuePendingActivity(`הוסיף שורה לטבלת אמצעים: ${row.civilMilitary} | ${row.marking} | ${row.medium} | ${row.serial}`, {
+    type: 'db_add_camera_item_row',
+    medium: row.medium,
+    serial: row.serial
+  }, 'database');
+  renderApp();
 }
 
 function dbSafeSoldiersArray() {
