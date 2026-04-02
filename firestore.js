@@ -42,6 +42,7 @@ function loadFirestoreData() {
       if (Array.isArray(data.cameraItemsTable)) updates.cameraItemsTable = data.cameraItemsTable;
       if (data.totalStock) updates.totalStock = data.totalStock;
       if (data.soldiers)   updates.soldiersData = data.soldiers;
+      if (data.rasmatzLists) updates.rasmatzLists = data.rasmatzLists;
       if (data.generalTableAssignments) updates.generalTableAssignments = data.generalTableAssignments;
       if (data.activityLog) updates.activityLog = data.activityLog;
       if (Object.keys(updates).length > 0) {
@@ -313,10 +314,12 @@ async function handleSaveGeneralTable() {
       const commSerial = String((row.commSerial || '').trim());
       const multitoolType = String((row.multitoolType || '').trim());
       const multitoolSerial = String((row.multitoolSerial || '').trim());
+      const tacticalType = String((row.tacticalType || '').trim());
+      const tacticalSerial = String((row.tacticalSerial || '').trim());
       const fragGrenade1 = String((row.fragGrenade1 || row.fragGrenade || '').trim());
       const fragGrenade2 = String((row.fragGrenade2 || '').trim());
 
-      if (!amralType && !amralSerial && !commType && !commSerial && !multitoolType && !multitoolSerial && !fragGrenade1 && !fragGrenade2) return;
+      if (!amralType && !amralSerial && !commType && !commSerial && !multitoolType && !multitoolSerial && !tacticalType && !tacticalSerial && !fragGrenade1 && !fragGrenade2) return;
 
       cleaned[soldierKey] = {
         amralType,
@@ -325,6 +328,8 @@ async function handleSaveGeneralTable() {
         commSerial,
         multitoolType,
         multitoolSerial,
+        tacticalType,
+        tacticalSerial,
         fragGrenade1,
         fragGrenade2
       };
@@ -344,6 +349,36 @@ async function handleSaveGeneralTable() {
     setState({ isSavingGeneralTable: false });
     renderApp();
     setTimeout(() => { setState({ generalTableSaveMessage: '' }); renderApp(); }, 4000);
+  }
+}
+
+async function handleSaveRasmatz() {
+  setState({ isSavingRasmatz: true });
+  renderApp();
+  try {
+    const source = AppState.rasmatzLists || {};
+    const cleaned = {};
+    Object.keys(source).forEach((listName) => {
+      const name = String(listName || '').trim();
+      if (!name) return;
+      const rows = Array.isArray(source[listName]) ? source[listName] : [];
+      cleaned[name] = rows
+        .map((row) => String(row || '').trim())
+        .filter(Boolean);
+    });
+    await getSettingsRef().set({ rasmatzLists: cleaned }, { merge: true });
+    appendActivityLog('שמר רשימות רשמ"צ', { type: 'save_rasmatz' });
+    setState({
+      rasmatzLists: cleaned,
+      rasmatzSaveMessage: 'רשימות רשמ"צ נשמרו בהצלחה!'
+    });
+  } catch (e) {
+    console.error(e);
+    setState({ rasmatzSaveMessage: 'שגיאה בשמירת רשימות רשמ"צ.' });
+  } finally {
+    setState({ isSavingRasmatz: false });
+    renderApp();
+    setTimeout(() => { setState({ rasmatzSaveMessage: '' }); renderApp(); }, 4000);
   }
 }
 

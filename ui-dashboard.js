@@ -8,8 +8,27 @@ function renderDashboardTab() {
   const { submissionHistory, inventoryTotals, totalStock,
     dashboardSearchTerm, isDashboardDropdownOpen, selectedSoldier } = AppState;
 
+  const stockByItem = {};
+  const compositeStockByItem = {};
+  Object.entries(totalStock || {}).forEach(([key, rawVal]) => {
+    const value = Number(rawVal) || 0;
+    const k = String(key || '');
+    if (k.includes(':::')) {
+      const parts = k.split(':::');
+      const itemName = parts.slice(1).join(':::').trim();
+      if (!itemName) return;
+      compositeStockByItem[itemName] = (compositeStockByItem[itemName] || 0) + value;
+      return;
+    }
+    stockByItem[k] = (stockByItem[k] || 0) + value;
+  });
+  Object.keys(compositeStockByItem).forEach((itemName) => {
+    stockByItem[itemName] = compositeStockByItem[itemName];
+  });
+
   const dashboardItems = Array.from(new Set([
-    ...Object.keys(inventoryTotals), ...Object.keys(totalStock)
+    ...Object.keys(inventoryTotals),
+    ...Object.keys(stockByItem)
   ])).sort();
 
   // חישוב חיילים שחתומים על ציוד כרגע
@@ -134,7 +153,7 @@ function renderDashboardTab() {
             </thead>
             <tbody class="divide-y divide-slate-100">
               ${dashboardItems.map(item => {
-                const stock = totalStock[item] || 0;
+                const stock = stockByItem[item] || 0;
                 const drawn = inventoryTotals[item] || 0;
                 const remaining = stock - drawn;
                 return `<tr class="hover:bg-slate-50 transition-colors">

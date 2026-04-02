@@ -5,6 +5,8 @@ function renderSignaturesTab() {
   const {
     soldierName, personalNumber, formSearchTerm,
     weaponsData, selectedWeaponType, selectedWeaponSerial, cartWeapons, originalWeapons,
+    opticsData, selectedOpticType, selectedOpticSerial, cartOptics, originalOptics,
+    commsData, selectedCommType, selectedCommSerial, cartComms, originalComms,
     isSubmitting
   } = AppState;
 
@@ -117,6 +119,107 @@ function renderSignaturesTab() {
             </div>`;
           }).join('')}
       </div>` : `<div class="text-sm text-slate-500 border-t border-slate-100 pt-4">אין נשקים חתומים על החייל.</div>`}
+    </div>
+
+    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+      <h2 class="text-lg font-bold text-slate-700 flex items-center gap-2 mb-4">
+        <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+        </svg>
+        אופטיקה של החייל
+      </h2>
+      <div class="flex flex-col md:flex-row gap-4 items-end mb-4">
+        <div class="w-full md:w-1/3">
+          <label class="block text-sm font-medium text-slate-700 mb-1">סוג אופטיקה</label>
+          <select onchange="setSelectedOpticType(this.value)"
+            class="w-full border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+            <option value="" ${!selectedOpticType ? 'selected' : ''} disabled>בחר סוג...</option>
+            ${Object.keys(opticsData || {}).map(t => `<option value="${escH(t)}" ${selectedOpticType===t?'selected':''}>${escH(t)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="w-full md:w-1/3">
+          <label class="block text-sm font-medium text-slate-700 mb-1">צ' אופטיקה</label>
+          <input type="text" list="optic-serials-list"
+            value="${escH(selectedOpticSerial)}"
+            onchange="setState({selectedOpticSerial:this.value}); renderApp()"
+            placeholder="הקלד או בחר..."
+            autocomplete="off"
+            ${!selectedOpticType ? 'disabled' : ''}
+            class="w-full border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:bg-slate-100 disabled:text-slate-400" />
+          <datalist id="optic-serials-list">
+            ${selectedOpticType ? (opticsData[selectedOpticType]||[]).filter(s=>String(s||'').trim()!=='').map(s=>`<option value="${escH(s)}"></option>`).join('') : ''}
+          </datalist>
+        </div>
+        <div class="w-full md:w-1/3">
+          <button type="button" onclick="handleAddOptic()" ${!selectedOpticType||!selectedOpticSerial?'disabled':''}
+            class="w-full bg-slate-800 hover:bg-slate-900 disabled:bg-slate-300 text-white p-2.5 rounded-lg font-bold transition-colors">
+            הוסף לחייל
+          </button>
+        </div>
+      </div>
+      ${cartOptics.length > 0 ? `
+      <div class="border-t border-slate-100 pt-4 space-y-2">
+          ${cartOptics.map((o,idx) => {
+            const isNew = !originalOptics.find(x=>x.type===o.type&&x.serial===o.serial);
+            return `<div class="flex justify-between items-center px-3 py-2 rounded-lg border ${isNew?'bg-green-50 border-green-200 text-green-900':'bg-slate-50 border-slate-200 text-slate-800'}">
+              <span class="font-medium">${escH(o.type)} - ${escH(o.serial)} ${isNew?'<span class="text-xs bg-green-200 text-green-800 px-1.5 py-0.5 rounded mr-2">נוסף כעת</span>':''}</span>
+              <button type="button" onclick="handleRemoveOptic(${idx})" class="text-red-500 hover:text-red-700 p-1 bg-white rounded shadow-sm border border-red-100">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              </button>
+            </div>`;
+          }).join('')}
+      </div>` : `<div class="text-sm text-slate-500 border-t border-slate-100 pt-4">אין אופטיקה חתומה על החייל.</div>`}
+    </div>
+
+    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+      <h2 class="text-lg font-bold text-slate-700 flex items-center gap-2 mb-4">
+        <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.14 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/>
+        </svg>
+        תקשוב של החייל
+      </h2>
+      <div class="flex flex-col md:flex-row gap-4 items-end mb-4">
+        <div class="w-full md:w-1/3">
+          <label class="block text-sm font-medium text-slate-700 mb-1">סוג תקשוב</label>
+          <select onchange="setSelectedCommType(this.value)"
+            class="w-full border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+            <option value="" ${!selectedCommType ? 'selected' : ''} disabled>בחר סוג...</option>
+            ${Object.keys(commsData || {}).map(t => `<option value="${escH(t)}" ${selectedCommType===t?'selected':''}>${escH(t)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="w-full md:w-1/3">
+          <label class="block text-sm font-medium text-slate-700 mb-1">צ' תקשוב</label>
+          <input type="text" list="comm-serials-list"
+            value="${escH(selectedCommSerial)}"
+            onchange="setState({selectedCommSerial:this.value}); renderApp()"
+            placeholder="הקלד או בחר..."
+            autocomplete="off"
+            ${!selectedCommType ? 'disabled' : ''}
+            class="w-full border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:bg-slate-100 disabled:text-slate-400" />
+          <datalist id="comm-serials-list">
+            ${selectedCommType ? (commsData[selectedCommType]||[]).filter(s=>String(s||'').trim()!=='').map(s=>`<option value="${escH(s)}"></option>`).join('') : ''}
+          </datalist>
+        </div>
+        <div class="w-full md:w-1/3">
+          <button type="button" onclick="handleAddComm()" ${!selectedCommType||!selectedCommSerial?'disabled':''}
+            class="w-full bg-slate-800 hover:bg-slate-900 disabled:bg-slate-300 text-white p-2.5 rounded-lg font-bold transition-colors">
+            הוסף לחייל
+          </button>
+        </div>
+      </div>
+      ${cartComms.length > 0 ? `
+      <div class="border-t border-slate-100 pt-4 space-y-2">
+          ${cartComms.map((c,idx) => {
+            const isNew = !originalComms.find(x=>x.type===c.type&&x.serial===c.serial);
+            return `<div class="flex justify-between items-center px-3 py-2 rounded-lg border ${isNew?'bg-green-50 border-green-200 text-green-900':'bg-slate-50 border-slate-200 text-slate-800'}">
+              <span class="font-medium">${escH(c.type)} - ${escH(c.serial)} ${isNew?'<span class="text-xs bg-green-200 text-green-800 px-1.5 py-0.5 rounded mr-2">נוסף כעת</span>':''}</span>
+              <button type="button" onclick="handleRemoveComm(${idx})" class="text-red-500 hover:text-red-700 p-1 bg-white rounded shadow-sm border border-red-100">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              </button>
+            </div>`;
+          }).join('')}
+      </div>` : `<div class="text-sm text-slate-500 border-t border-slate-100 pt-4">אין תקשוב חתום על החייל.</div>`}
     </div>
 
     <div class="sticky bottom-4 mt-8">

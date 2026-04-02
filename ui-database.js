@@ -62,19 +62,30 @@ function renderCameraItemsTableBlock(cameraItems, newCameraItem, cameraMediumOpt
             <th class="p-3 border-b border-slate-200">סימון</th>
             <th class="p-3 border-b border-slate-200">אמצעי</th>
             <th class="p-3 border-b border-slate-200">צ'</th>
+            <th class="p-3 border-b border-slate-200">פעולות</th>
           </tr>
         </thead>
         <tbody>
           ${cameraItems.length === 0 ? `
             <tr>
-              <td colspan="4" class="p-4 text-slate-500 text-center">הטבלה ריקה כרגע. הוסף שורה חדשה למטה.</td>
+              <td colspan="5" class="p-4 text-slate-500 text-center">הטבלה ריקה כרגע. הוסף שורה חדשה למטה.</td>
             </tr>
-          ` : cameraItems.map((row) => `
+          ` : cameraItems.map((row, rowIdx) => `
             <tr class="border-b border-slate-100">
               <td class="p-2">${escH(row.civilMilitary || '')}</td>
               <td class="p-2">${escH(row.marking || '')}</td>
               <td class="p-2">${escH(row.medium || '')}</td>
               <td class="p-2 font-mono">${escH(row.serial || '')}</td>
+              <td class="p-2">
+                <button type="button"
+                  onclick="dbRemoveCameraItemRow(${rowIdx})"
+                  class="text-red-500 hover:text-red-700 p-1 bg-white rounded shadow-sm border border-red-100"
+                  title="מחק רשומה">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                </button>
+              </td>
             </tr>
           `).join('')}
         </tbody>
@@ -315,6 +326,117 @@ function dbAddCameraItemRow() {
   renderApp();
 }
 
+function dbCanonicalTypeName(typeName) {
+  const raw = String(typeName || '')
+    .trim()
+    .replace(/[״"]/g, '"')
+    .replace(/[׳']/g, "'");
+  if (['שח"מ', 'שח"ם', 'שח״מ', 'שח״ם', 'שחמ', 'שחם'].includes(raw)) return 'שח"מ';
+  if (['מטען נייד לאולר', 'מטען נייד אולר', 'מטען טקטי לאולר'].includes(raw)) return 'מטען טקטי לאולר';
+  if (raw.toLowerCase() === 'nyx') return 'NYX';
+  return raw;
+}
+
+function dbGetGeneralTableHoldersForCameraItem(medium, serial) {
+  const assignments = AppState.generalTableAssignments || {};
+  const typeStr = dbCanonicalTypeName(medium);
+  const serialStr = String(serial || '').trim();
+  if (!typeStr || !serialStr) return [];
+
+  const holders = [];
+  Object.keys(assignments).forEach((soldierKey) => {
+    const row = assignments[soldierKey] || {};
+    const amralMatch = dbCanonicalTypeName(row.amralType || '') === typeStr && String(row.amralSerial || '').trim() === serialStr;
+    const commMatch = dbCanonicalTypeName(row.commType || '') === typeStr && String(row.commSerial || '').trim() === serialStr;
+    const multitoolMatch = dbCanonicalTypeName(row.multitoolType || '') === typeStr && String(row.multitoolSerial || '').trim() === serialStr;
+    const tacticalMatch = dbCanonicalTypeName(row.tacticalType || '') === typeStr && String(row.tacticalSerial || '').trim() === serialStr;
+    if (amralMatch || commMatch || multitoolMatch || tacticalMatch) {
+      holders.push(dbSoldierDisplayNameByKey(soldierKey));
+    }
+  });
+  return Array.from(new Set(holders.filter(Boolean)));
+}
+
+function dbCleanupGeneralTableAfterCameraItemRemoval(medium, serial) {
+  const assignments = AppState.generalTableAssignments || {};
+  const typeStr = dbCanonicalTypeName(medium);
+  const serialStr = String(serial || '').trim();
+  if (!typeStr || !serialStr) return { nextAssignments: assignments, affectedSoldiers: [] };
+
+  const nextAssignments = { ...assignments };
+  const affectedSoldiers = [];
+
+  Object.keys(assignments).forEach((soldierKey) => {
+    const row = assignments[soldierKey] || {};
+    const nextRow = { ...row };
+    let changed = false;
+
+    if (dbCanonicalTypeName(row.amralType || '') === typeStr && String(row.amralSerial || '').trim() === serialStr) {
+      nextRow.amralType = '';
+      nextRow.amralSerial = '';
+      changed = true;
+    }
+    if (dbCanonicalTypeName(row.commType || '') === typeStr && String(row.commSerial || '').trim() === serialStr) {
+      nextRow.commType = '';
+      nextRow.commSerial = '';
+      changed = true;
+    }
+    if (dbCanonicalTypeName(row.multitoolType || '') === typeStr && String(row.multitoolSerial || '').trim() === serialStr) {
+      nextRow.multitoolType = '';
+      nextRow.multitoolSerial = '';
+      changed = true;
+    }
+    if (dbCanonicalTypeName(row.tacticalType || '') === typeStr && String(row.tacticalSerial || '').trim() === serialStr) {
+      nextRow.tacticalType = '';
+      nextRow.tacticalSerial = '';
+      changed = true;
+    }
+
+    if (!changed) return;
+    affectedSoldiers.push(dbSoldierDisplayNameByKey(soldierKey));
+    if (dbIsGeneralTableRowEmpty(nextRow)) delete nextAssignments[soldierKey];
+    else nextAssignments[soldierKey] = nextRow;
+  });
+
+  return { nextAssignments, affectedSoldiers: Array.from(new Set(affectedSoldiers.filter(Boolean))) };
+}
+
+function dbRemoveCameraItemRow(index) {
+  const table = Array.isArray(AppState.cameraItemsTable) ? AppState.cameraItemsTable : [];
+  const idx = Number(index);
+  if (!Number.isInteger(idx) || idx < 0 || idx >= table.length) return;
+
+  const row = table[idx] || {};
+  const medium = String(row.medium || '').trim();
+  const serial = String(row.serial || '').trim();
+  const holders = dbGetGeneralTableHoldersForCameraItem(medium, serial);
+  const msg = holders.length > 0
+    ? `הרשומה ${medium} | ${serial} משויכת כרגע בטבלה הכללית על:\n${holders.join(', ')}\n\nהאם למחוק את הרשומה?`
+    : `האם למחוק את הרשומה ${medium} | ${serial}?`;
+  if (!window.confirm(msg)) return;
+
+  const cleanup = dbCleanupGeneralTableAfterCameraItemRemoval(medium, serial);
+  const nextTable = table.filter((_, i) => i !== idx);
+  setState({ cameraItemsTable: nextTable, generalTableAssignments: cleanup.nextAssignments });
+
+  queuePendingActivity(`מחק רשומה מטבלת אמצעים: ${medium} | ${serial}`, {
+    type: 'db_remove_camera_item_row',
+    medium,
+    serial
+  }, 'database');
+
+  if (cleanup.affectedSoldiers.length > 0) {
+    queuePendingActivity(`הסיר אוטומטית שיוכים בטבלה הכללית בעקבות מחיקת ${medium} ${serial} עבור: ${cleanup.affectedSoldiers.join(', ')}`, {
+      type: 'general_table_auto_cleanup_camera_item',
+      medium,
+      serial,
+      affectedSoldiers: cleanup.affectedSoldiers
+    }, 'database');
+  }
+
+  renderApp();
+}
+
 function dbSafeSoldiersArray() {
   if (Array.isArray(AppState.soldiersData)) return AppState.soldiersData.filter(Boolean);
   if (AppState.soldiersData && typeof AppState.soldiersData === 'object') return Object.values(AppState.soldiersData).filter(Boolean);
@@ -347,7 +469,8 @@ function dbGetGeneralTableHoldersForSerial(stateKey, type, serial) {
     } else if (stateKey === 'commsData') {
       const isCommMatch = String(row.commType || '').trim() === typeStr && String(row.commSerial || '').trim() === serialStr;
       const isMultitoolMatch = String(row.multitoolType || '').trim() === typeStr && String(row.multitoolSerial || '').trim() === serialStr;
-      isMatch = isCommMatch || isMultitoolMatch;
+      const isTacticalMatch = String(row.tacticalType || '').trim() === typeStr && String(row.tacticalSerial || '').trim() === serialStr;
+      isMatch = isCommMatch || isMultitoolMatch || isTacticalMatch;
     } else if (stateKey === 'ammoData' && typeStr === 'רימון רסס') {
       const frag1 = String(row.fragGrenade1 || row.fragGrenade || '').trim();
       const frag2 = String(row.fragGrenade2 || '').trim();
@@ -372,7 +495,8 @@ function dbGetGeneralTableHoldersForType(stateKey, type) {
     } else if (stateKey === 'commsData') {
       const isCommMatch = String(row.commType || '').trim() === typeStr && String(row.commSerial || '').trim() !== '';
       const isMultitoolMatch = String(row.multitoolType || '').trim() === typeStr && String(row.multitoolSerial || '').trim() !== '';
-      isMatch = isCommMatch || isMultitoolMatch;
+      const isTacticalMatch = String(row.tacticalType || '').trim() === typeStr && String(row.tacticalSerial || '').trim() !== '';
+      isMatch = isCommMatch || isMultitoolMatch || isTacticalMatch;
     } else if (stateKey === 'ammoData' && typeStr === 'רימון רסס') {
       const frag1 = String(row.fragGrenade1 || row.fragGrenade || '').trim();
       const frag2 = String(row.fragGrenade2 || '').trim();
@@ -392,6 +516,8 @@ function dbIsGeneralTableRowEmpty(row) {
     && !String(row.commSerial || '').trim()
     && !String(row.multitoolType || '').trim()
     && !String(row.multitoolSerial || '').trim()
+    && !String(row.tacticalType || '').trim()
+    && !String(row.tacticalSerial || '').trim()
     && !String(row.fragGrenade1 || row.fragGrenade || '').trim()
     && !String(row.fragGrenade2 || '').trim();
 }
@@ -420,6 +546,7 @@ function dbCleanupGeneralTableAfterSerialRemoval(stateKey, type, serial) {
     } else if (stateKey === 'commsData') {
       const isCommMatch = String(row.commType || '').trim() === typeStr && String(row.commSerial || '').trim() === serialStr;
       const isMultitoolMatch = String(row.multitoolType || '').trim() === typeStr && String(row.multitoolSerial || '').trim() === serialStr;
+      const isTacticalMatch = String(row.tacticalType || '').trim() === typeStr && String(row.tacticalSerial || '').trim() === serialStr;
       if (isCommMatch) {
         nextRow.commType = '';
         nextRow.commSerial = '';
@@ -428,6 +555,11 @@ function dbCleanupGeneralTableAfterSerialRemoval(stateKey, type, serial) {
       if (isMultitoolMatch) {
         nextRow.multitoolType = '';
         nextRow.multitoolSerial = '';
+        changed = true;
+      }
+      if (isTacticalMatch) {
+        nextRow.tacticalType = '';
+        nextRow.tacticalSerial = '';
         changed = true;
       }
     } else if (stateKey === 'ammoData' && typeStr === 'רימון רסס') {
@@ -476,6 +608,7 @@ function dbCleanupGeneralTableAfterTypeRemoval(stateKey, type) {
     } else if (stateKey === 'commsData') {
       const isCommMatch = String(row.commType || '').trim() === typeStr && String(row.commSerial || '').trim() !== '';
       const isMultitoolMatch = String(row.multitoolType || '').trim() === typeStr && String(row.multitoolSerial || '').trim() !== '';
+      const isTacticalMatch = String(row.tacticalType || '').trim() === typeStr && String(row.tacticalSerial || '').trim() !== '';
       if (isCommMatch) {
         nextRow.commType = '';
         nextRow.commSerial = '';
@@ -484,6 +617,11 @@ function dbCleanupGeneralTableAfterTypeRemoval(stateKey, type) {
       if (isMultitoolMatch) {
         nextRow.multitoolType = '';
         nextRow.multitoolSerial = '';
+        changed = true;
+      }
+      if (isTacticalMatch) {
+        nextRow.tacticalType = '';
+        nextRow.tacticalSerial = '';
         changed = true;
       }
     } else if (stateKey === 'ammoData' && typeStr === 'רימון רסס') {

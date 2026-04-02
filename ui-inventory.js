@@ -29,9 +29,9 @@ function renderInventoryTab() {
         <div class="flex justify-between items-center bg-slate-50 p-3 rounded-lg border border-slate-100">
           <span class="font-medium text-slate-800">${escH(item)}</span>
           <input type="number" min="0"
-            value="${totalStock[item] === undefined ? '' : totalStock[item]}"
+            value="${getTotalStockValueForCategoryItem(totalStock, catName, item)}"
             placeholder="0"
-            onchange="updateTotalStock('${escH(item)}', this.value)"
+            onchange="updateTotalStock('${escH(catName)}','${escH(item)}', this.value)"
             class="w-24 border border-slate-300 rounded-lg p-2 text-center focus:ring-2 focus:ring-blue-500 outline-none"/>
         </div>`).join('')}
       </div>
@@ -39,7 +39,21 @@ function renderInventoryTab() {
   </div>`;
 }
 
-function updateTotalStock(item, value) {
-  const newStock = { ...AppState.totalStock, [item]: Math.max(0, parseInt(value) || 0) };
+function getTotalStockCategoryItemKey(category, item) {
+  return `${String(category || '').trim()}:::${String(item || '').trim()}`;
+}
+
+function getTotalStockValueForCategoryItem(totalStock, category, item) {
+  const stock = totalStock || {};
+  const compositeKey = getTotalStockCategoryItemKey(category, item);
+  if (stock[compositeKey] !== undefined) return stock[compositeKey];
+  // Backward compatibility with legacy flat keys.
+  if (stock[item] !== undefined) return stock[item];
+  return '';
+}
+
+function updateTotalStock(category, item, value) {
+  const compositeKey = getTotalStockCategoryItemKey(category, item);
+  const newStock = { ...AppState.totalStock, [compositeKey]: Math.max(0, parseInt(value) || 0) };
   setState({ totalStock: newStock });
 }
