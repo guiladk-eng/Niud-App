@@ -89,6 +89,7 @@ const AppState = {
   newRasmatzListName: '',
   isSavingRasmatz: false,
   rasmatzSaveMessage: '',
+  reportsCipherText: '',
   generalTableAssignments: {},
   generalTableFilters: { amral: '', comm: '', multitool: '', tactical: '', frag: '', weaponType: '', weaponSerial: '' },
   generalTableSearchTerm: '',

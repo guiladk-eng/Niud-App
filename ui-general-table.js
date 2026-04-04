@@ -577,7 +577,7 @@ function renderGeneralTableTab() {
 
   return `
   <div class="space-y-6">
-    <div class="bg-white p-4 rounded-xl shadow-md border border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sticky top-56 z-0">
+    <div class="bg-white p-4 rounded-xl shadow-md border border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 z-0 md:sticky md:top-56 md:z-20">
       <div>
         <h2 class="text-lg font-bold text-slate-700">טבלה כללית</h2>
         <p class="text-sm text-slate-500">מעקב וניהול הקצאות אמר"ל, קשר, אולר, מטען טקטי לאולר ורימוני רסס לכל חייל.</p>
@@ -690,7 +690,7 @@ function renderGeneralTableTab() {
         <table class="w-full text-right border-collapse ${hideWeaponColumns ? 'min-w-[1050px]' : 'min-w-[1450px]'}">
           <thead>
             <tr class="bg-slate-100 text-slate-600 text-sm">
-              <th class="p-3 border-b border-slate-200 bg-slate-100">שם</th>
+              <th class="p-3 border-b border-slate-200 bg-slate-100 sticky right-0 z-20">שם</th>
               <th class="p-3 border-b border-slate-200">צוות</th>
               ${hideWeaponColumns ? '' : `<th class="p-3 border-b border-slate-200">מ.א</th>`}
               ${hideWeaponColumns ? '' : `<th class="p-3 border-b border-slate-200">סוג נשק</th>`}
@@ -743,7 +743,7 @@ function renderGeneralTableTab() {
               const fragListId2 = `general-table-frag2-list-${rowIdx}`;
               return `
               <tr class="border-b border-slate-100 hover:bg-slate-50">
-                <td class="p-2 text-slate-800 font-medium bg-white border-l border-slate-200">${escH(soldier.name || '-')}</td>
+                <td class="p-2 text-slate-800 font-medium bg-white border-l border-slate-200 sticky right-0 z-10">${escH(soldier.name || '-')}</td>
                 <td class="p-2 text-slate-700">${escH(soldier.department || '-')}</td>
                 ${hideWeaponColumns ? '' : `<td class="p-2 font-mono text-slate-700">${escH(soldier.id || '-')}</td>`}
                 ${hideWeaponColumns ? '' : `<td class="p-2 text-slate-700 align-top">${weaponTypesHtml}</td>`}
