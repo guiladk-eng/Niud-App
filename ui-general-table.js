@@ -130,11 +130,22 @@ function getGeneralTableMediumMarkingLabel(typeLabel, serial) {
   return `${typeStr} | ${serialStr}`;
 }
 
-function getGeneralTableAssignmentDisplayLabel(typeLabel, serial) {
+// Returns only the marking tag (e.g. "A1", "ק2") — used for table cell display
+function getGeneralTableCellLabel(typeLabel, serial) {
+  const table = Array.isArray(AppState.cameraItemsTable) ? AppState.cameraItemsTable : [];
   const typeStr = canonicalGeneralTableTypeName(typeLabel || '');
   const serialStr = String(serial || '').trim();
   if (!typeStr || !serialStr) return '-';
-  return getGeneralTableMediumMarkingLabel(typeStr, serialStr);
+  const match = table.find((row) =>
+    canonicalGeneralTableTypeName((row && row.medium) || '') === typeStr &&
+    String((row && row.serial) || '').trim() === serialStr
+  );
+  const marking = String((match && match.marking) || '').trim();
+  return marking || serialStr;
+}
+
+function getGeneralTableAssignmentDisplayLabel(typeLabel, serial) {
+  return getGeneralTableCellLabel(typeLabel, serial);
 }
 
 function isGeneralTableSelectionAllowed(field, type, serial) {
@@ -514,6 +525,22 @@ function toggleGeneralTableWeaponColumns() {
 function renderGeneralTableTab() {
   const { isSavingGeneralTable, generalTableSaveMessage, generalTableNotice } = AppState;
   const hideWeaponColumns = !!AppState.generalTableHideWeaponColumns;
+  const isMobileView = typeof window !== 'undefined' && window.innerWidth < 640;
+
+  // ─── COLUMN WIDTHS (px) ──────────────────────────────────────────
+  // Change these numbers to resize columns. Two values: [mobile, desktop]
+  const nameW      = isMobileView ?  55 : 80;  // שם          (sticky)
+  const teamW      = isMobileView ?  40 : 60;  // צוות
+  const idW        = isMobileView ?  45 : 60;  // מ.א
+  const wpnTypeW   = isMobileView ?  40 : 80;  // סוג נשק
+  const wpnSerialW = isMobileView ?  45 : 60;  // צ' נשק
+  const addlW      = isMobileView ?  70 : 130;  // אמצעים נוספים
+  const amralW     = isMobileView ?  45 : 80;  // אמר"ל
+  const commW      = isMobileView ?  35 : 45;  // קשר
+  const multitoolW = isMobileView ?  35 : 45;  // אולר
+  const tacticalW  = isMobileView ?  35 : 80;  // מטען טקטי לאולר
+  const fragW      = isMobileView ?  35 : 45;  // רימוני רסס
+  // ─────────────────────────────────────────────────────────────────
   const allowedAmralTypes = ['שח"ם', 'שח"מ', 'עידו', 'ליאור', 'עכבר', 'שח"ע', 'NYX', 'מיקרון'];
   const allowedCommTypes = ['קשר 710'];
   const allowedMultitoolTypes = ['אולר'];
@@ -549,6 +576,9 @@ function renderGeneralTableTab() {
     soldiers.map((s) => String((s && s.department) || '').trim()).filter(Boolean)
   )).sort((a, b) => a.localeCompare(b, 'he'));
   const tableColCount = hideWeaponColumns ? 7 : 11;
+  const tableMinW = hideWeaponColumns
+    ? nameW + teamW + amralW + commW + multitoolW + tacticalW + fragW
+    : nameW + teamW + idW + wpnTypeW + wpnSerialW + addlW + amralW + commW + multitoolW + tacticalW + fragW;
   const selectedTeams = Array.isArray(AppState.generalTableSelectedTeams) ? AppState.generalTableSelectedTeams : [];
 
   const filteredSoldiers = soldiers.filter((soldier) => {
@@ -694,20 +724,35 @@ function renderGeneralTableTab() {
 
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
       <div id="general-table-scroll-wrap" class="overflow-x-auto">
-        <table class="w-full text-right border-collapse ${hideWeaponColumns ? 'min-w-[1050px]' : 'min-w-[1450px]'}">
+        <table class="general-table text-right text-sm" style="min-width:${tableMinW}px;">
+          <colgroup>
+            <col style="width:${nameW}px">
+            <col style="width:${teamW}px">
+            ${hideWeaponColumns ? '' : `
+            <col style="width:${idW}px">
+            <col style="width:${wpnTypeW}px">
+            <col style="width:${wpnSerialW}px">
+            <col style="width:${addlW}px">
+            `}
+            <col style="width:${amralW}px">
+            <col style="width:${commW}px">
+            <col style="width:${multitoolW}px">
+            <col style="width:${tacticalW}px">
+            <col style="width:${fragW}px">
+          </colgroup>
           <thead>
             <tr class="bg-slate-100 text-slate-600 text-sm">
-              <th class="p-3 border-b border-slate-200 bg-slate-100 sticky right-0 z-20">שם</th>
-              <th class="p-3 border-b border-slate-200">צוות</th>
-              ${hideWeaponColumns ? '' : `<th class="p-3 border-b border-slate-200">מ.א</th>`}
-              ${hideWeaponColumns ? '' : `<th class="p-3 border-b border-slate-200">סוג נשק</th>`}
-              ${hideWeaponColumns ? '' : `<th class="p-3 border-b border-slate-200">צ' נשק</th>`}
-              ${hideWeaponColumns ? '' : `<th class="p-3 border-b border-slate-200">אמצעים נוספים</th>`}
-              <th class="p-3 border-b border-slate-200">אמר"ל</th>
-              <th class="p-3 border-b border-slate-200">קשר</th>
-              <th class="p-3 border-b border-slate-200">אולר</th>
-              <th class="p-3 border-b border-slate-200">מטען טקטי לאולר</th>
-              <th class="p-3 border-b border-slate-200">רימוני רסס</th>
+              <th class="border-b border-slate-200 bg-slate-100 sticky right-0 z-20" style="width:${nameW}px;">שם</th>
+              <th class="border-b border-slate-200" style="width:${teamW}px;">צוות</th>
+              ${hideWeaponColumns ? '' : `<th class="border-b border-slate-200" style="width:${idW}px;">מ.א</th>`}
+              ${hideWeaponColumns ? '' : `<th class="border-b border-slate-200" style="width:${wpnTypeW}px;">סוג נשק</th>`}
+              ${hideWeaponColumns ? '' : `<th class="border-b border-slate-200" style="width:${wpnSerialW}px;">צ' נשק</th>`}
+              ${hideWeaponColumns ? '' : `<th class="border-b border-slate-200" style="width:${addlW}px;">אמצעים נוספים</th>`}
+              <th class="border-b border-slate-200" style="width:${amralW}px;">אמר"ל</th>
+              <th class="border-b border-slate-200" style="width:${commW}px;">קשר</th>
+              <th class="border-b border-slate-200" style="width:${multitoolW}px;">אולר</th>
+              <th class="border-b border-slate-200" style="width:${tacticalW}px;">מטען טקטי לאולר</th>
+              <th class="border-b border-slate-200" style="width:${fragW}px;">רימוני רסס</th>
             </tr>
           </thead>
           <tbody>
@@ -737,7 +782,7 @@ function renderGeneralTableTab() {
                 ? `<div class="space-y-1">${additionalMeansLines.map((line) => `<div>${escH(line)}</div>`).join('')}</div>`
                 : '-';
               const amralValue = ass.amralType && ass.amralSerial ? `${encodeURIComponent(ass.amralType)}::${encodeURIComponent(ass.amralSerial)}` : '';
-              const amralLabel = getGeneralTableAssignmentDisplayLabel(ass.amralType, ass.amralSerial);
+              const amralLabel = (ass.amralType && ass.amralSerial) ? getGeneralTableMediumMarkingLabel(ass.amralType, ass.amralSerial) : '-';
               const commValue = ass.commType && ass.commSerial ? `${encodeURIComponent(ass.commType)}::${encodeURIComponent(ass.commSerial)}` : '';
               const commLabel = getGeneralTableAssignmentDisplayLabel(ass.commType, ass.commSerial);
               const multitoolValue = ass.multitoolType && ass.multitoolSerial ? `${encodeURIComponent(ass.multitoolType)}::${encodeURIComponent(ass.multitoolSerial)}` : '';
@@ -746,26 +791,23 @@ function renderGeneralTableTab() {
               const tacticalLabel = getGeneralTableAssignmentDisplayLabel(ass.tacticalType, ass.tacticalSerial);
               const fragValue1 = String(ass.fragGrenade1 || ass.fragGrenade || '');
               const fragValue2 = String(ass.fragGrenade2 || '');
-              const fragLabel1 = fragValue1 ? getGeneralTableMediumMarkingLabel('רימון רסס', fragValue1) : '';
-              const fragLabel2 = fragValue2 ? getGeneralTableMediumMarkingLabel('רימון רסס', fragValue2) : '';
+              const fragLabel1 = fragValue1 ? getGeneralTableCellLabel('רימון רסס', fragValue1) : '';
+              const fragLabel2 = fragValue2 ? getGeneralTableCellLabel('רימון רסס', fragValue2) : '';
               return `
               <tr class="border-b border-slate-100 hover:bg-slate-50">
-                <td class="p-2 text-slate-800 font-medium bg-white border-l border-slate-200 sticky right-0 z-10">${escH(soldier.name || '-')}</td>
-                <td class="p-2 text-slate-700">${escH(soldier.department || '-')}</td>
-                ${hideWeaponColumns ? '' : `<td class="p-2 font-mono text-slate-700">${escH(soldier.id || '-')}</td>`}
-                ${hideWeaponColumns ? '' : `<td class="p-2 text-slate-700 align-top">${weaponTypesHtml}</td>`}
-                ${hideWeaponColumns ? '' : `<td class="p-2 font-mono text-slate-700 align-top">${weaponSerialsHtml}</td>`}
-                ${hideWeaponColumns ? '' : `<td class="p-2 text-slate-700 align-top">${additionalMeansHtml}</td>`}
-                <td class="p-2 text-slate-700 align-top">${escH(amralLabel)}</td>
-                <td class="p-2 text-slate-700 align-top">${escH(commLabel)}</td>
-                <td class="p-2 text-slate-700 align-top">${escH(multitoolLabel)}</td>
-                <td class="p-2 text-slate-700 align-top">${escH(tacticalLabel)}</td>
-                <td class="p-2 text-slate-700 align-top">
+                <td class="gt-name-cell text-slate-800 font-medium bg-white border-l border-slate-200 sticky right-0 z-10" style="line-height:1.3;">${escH(soldier.name || '-')}</td>
+                <td class="text-slate-700">${escH(soldier.department || '-')}</td>
+                ${hideWeaponColumns ? '' : `<td class="font-mono text-slate-700">${escH(soldier.id || '-')}</td>`}
+                ${hideWeaponColumns ? '' : `<td class="text-slate-700 align-top">${weaponTypesHtml}</td>`}
+                ${hideWeaponColumns ? '' : `<td class="font-mono text-slate-700 align-top">${weaponSerialsHtml}</td>`}
+                ${hideWeaponColumns ? '' : `<td class="text-slate-700 align-top">${additionalMeansHtml}</td>`}
+                <td class="text-slate-700 align-top">${escH(amralLabel)}</td>
+                <td class="text-slate-700 align-top">${escH(commLabel)}</td>
+                <td class="text-slate-700 align-top">${escH(multitoolLabel)}</td>
+                <td class="text-slate-700 align-top">${escH(tacticalLabel)}</td>
+                <td class="text-slate-700 align-top">
                   ${fragValue1 || fragValue2
-                    ? `<div class="space-y-1">
-                        ${fragValue1 ? `<div>${escH(fragLabel1)}</div>` : ''}
-                        ${fragValue2 ? `<div>${escH(fragLabel2)}</div>` : ''}
-                      </div>`
+                    ? `<div>${fragValue1 ? escH(fragLabel1) : ''}</div>${fragValue2 ? `<div>${escH(fragLabel2)}</div>` : ''}`
                     : '-'}
                 </td>
               </tr>`;

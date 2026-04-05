@@ -16,6 +16,37 @@
   <style>
     /* RTL support + base font */
     body { font-family: 'Segoe UI', Arial, sans-serif; }
+    /* Slightly smaller typography across app, especially on phones */
+    html { font-size: 12px; }
+    @media (max-width: 640px) {
+      html { font-size: 10px; }
+    }
+
+    /* General table: fixed layout, content clipping */
+    table.general-table {
+      table-layout: fixed;
+      border-collapse: collapse;
+    }
+    table.general-table th,
+    table.general-table td {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      padding: 6px 4px;
+      box-sizing: border-box;
+    }
+    table.general-table td.gt-name-cell {
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    @media (max-width: 640px) {
+      table.general-table th,
+      table.general-table td {
+        padding: 3px 2px;
+      }
+    }
+
     /* Hide scrollbar on tab nav */
     .scrollbar-hide::-webkit-scrollbar { display: none; }
     .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
@@ -35,32 +66,32 @@
   </div>
 
   <!-- ─── Data layer ───────────────────────────────── -->
-  <script src="data.js"></script>
+  <script src="data.js?v=25"></script>
 
   <!-- ─── App infrastructure ──────────────────────── -->
-  <script src="state.js"></script>
-  <script src="firebase.js"></script>
-  <script src="activity.js"></script>
+  <script src="state.js?v=25"></script>
+  <script src="firebase.js?v=25"></script>
+  <script src="activity.js?v=25"></script>
 
   <!-- ─── UI modules ──────────────────────────────── -->
-  <script src="render.js"></script>
-  <script src="ui-home-history.js"></script>
-  <script src="ui-form.js"></script>
-  <script src="ui-dashboard.js"></script>
-  <script src="ui-inventory.js"></script>
-  <script src="ui-database.js"></script>
-  <script src="ui-soldiers.js"></script>
-  <script src="ui-general-table.js"></script>
-  <script src="ui-rasmatz.js"></script>
-  <script src="ui-reports.js"></script>
-  <script src="ui-categories.js"></script>
+  <script src="render.js?v=25"></script>
+  <script src="ui-home-history.js?v=25"></script>
+  <script src="ui-form.js?v=25"></script>
+  <script src="ui-dashboard.js?v=25"></script>
+  <script src="ui-inventory.js?v=25"></script>
+  <script src="ui-database.js?v=25"></script>
+  <script src="ui-soldiers.js?v=25"></script>
+  <script src="ui-general-table.js?v=25"></script>
+  <script src="ui-rasmatz.js?v=25"></script>
+  <script src="ui-reports.js?v=25"></script>
+  <script src="ui-categories.js?v=25"></script>
 
   <!-- ─── Logic modules ───────────────────────────── -->
-  <script src="export.js"></script>
-  <script src="cart.js"></script>
-  <script src="soldiers.js"></script>
-  <script src="firestore.js"></script>
-  <script src="auth.js"></script>
+  <script src="export.js?v=25"></script>
+  <script src="cart.js?v=25"></script>
+  <script src="soldiers.js?v=25"></script>
+  <script src="firestore.js?v=25"></script>
+  <script src="auth.js?v=25"></script>
 
   <!-- ─── Boot ────────────────────────────────────── -->
   <script>

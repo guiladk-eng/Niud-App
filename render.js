@@ -95,7 +95,6 @@ function renderMainApp() {
     { id: 'home',       label: 'דף הבית',               icon: 'home'      },
     { id: 'history',    label: 'היסטוריה',              icon: 'clock'     },
     { id: 'signatures', label: 'החתמות',                icon: 'cart'      },
-    { id: 'dashboard',  label: 'ספירה כללית',          icon: 'chart'     },
     { id: 'reports',    label: 'דוחות',                 icon: 'file'      },
     { id: 'inventory',  label: 'ניהול מלאי',            icon: 'package'   },
     { id: 'categories', label: 'ניהול פריטים',          icon: 'tags'      },
@@ -123,7 +122,6 @@ function renderMainApp() {
   if (activeTab === 'home')            tabContent = renderHomeTab();
   else if (activeTab === 'history')    tabContent = renderHistoryTab();
   else if (activeTab === 'signatures') tabContent = renderSignaturesTab();
-  else if (activeTab === 'dashboard')  tabContent = renderDashboardTab();
   else if (activeTab === 'reports')    tabContent = renderReportsTab();
   else if (activeTab === 'inventory')  tabContent = renderInventoryTab();
   else if (activeTab === 'categories') tabContent = renderCategoriesTab();
@@ -131,6 +129,7 @@ function renderMainApp() {
   else if (activeTab === 'soldiers')   tabContent = renderSoldiersTab();
   else if (activeTab === 'generalTable') tabContent = renderGeneralTableTab();
   else if (activeTab === 'database')   tabContent = renderDatabaseTab();
+  else tabContent = renderHomeTab();
 
   // submitMessage color: orange for errors/no-changes, green for success (matches source)
   const msgHtml = submitMessage ? `
@@ -185,6 +184,7 @@ function renderMainApp() {
 
 function setActiveTab(tab) {
   if (tab === 'form') tab = 'signatures';
+  if (tab === 'dashboard') tab = 'home';
   setState({ activeTab: tab });
   renderApp();
 }
