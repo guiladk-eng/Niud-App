@@ -577,7 +577,7 @@ function renderGeneralTableTab() {
 
   return `
   <div class="space-y-6">
-    <div class="bg-white p-4 rounded-xl shadow-md border border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 z-0 md:sticky md:top-56 md:z-20">
+    <div class="bg-white p-4 rounded-xl shadow-md border border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 z-0 md:sticky md:top-40 md:z-20">
       <div>
         <h2 class="text-lg font-bold text-slate-700">טבלה כללית</h2>
         <p class="text-sm text-slate-500">מעקב וניהול הקצאות אמר"ל, קשר, אולר, מטען טקטי לאולר ורימוני רסס לכל חייל.</p>

@@ -161,14 +161,17 @@ function renderMainApp() {
         </div>
 
         <!-- Tabs -->
-        <nav class="flex flex-nowrap gap-2 sm:gap-4 mt-6 scrollbar-hide overflow-x-auto pb-1">
-          ${tabs.map(tab => `
-          <button onclick="setActiveTab('${tab.id}')"
-            class="pb-2 px-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 flex items-center gap-1 ${activeTab === tab.id ? 'border-white text-white' : 'border-transparent text-blue-200 hover:text-white'}">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">${icons[tab.icon]}</svg>
-            ${tab.label}
-          </button>`).join('')}
-        </nav>
+        <div class="mt-6">
+          <nav id="app-tabs-nav"
+            class="flex flex-wrap gap-2 sm:gap-4 pb-1">
+            ${tabs.map(tab => `
+            <button onclick="setActiveTab('${tab.id}')"
+              class="pb-2 px-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 flex items-center gap-1 ${activeTab === tab.id ? 'border-white text-white' : 'border-transparent text-blue-200 hover:text-white'}">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">${icons[tab.icon]}</svg>
+              ${tab.label}
+            </button>`).join('')}
+          </nav>
+        </div>
       </div>
     </header>
 
@@ -184,4 +187,74 @@ function setActiveTab(tab) {
   if (tab === 'form') tab = 'signatures';
   setState({ activeTab: tab });
   renderApp();
+}
+
+function getTabsNavOverflowState(nav) {
+  if (!nav) return { hasOverflow: false, canScrollStart: false, canScrollEnd: false };
+  const maxScroll = Math.max(0, nav.scrollWidth - nav.clientWidth);
+  const rawLeft = Number(nav.scrollLeft) || 0;
+  const absLeft = Math.max(Math.abs(rawLeft), rawLeft);
+  const left = Math.min(maxScroll, absLeft);
+  const hasOverflow = maxScroll > 2;
+  const canScrollStart = hasOverflow && left > 2;
+  const canScrollEnd = hasOverflow && left < (maxScroll - 2);
+  return { hasOverflow, canScrollStart, canScrollEnd };
+}
+
+function updateTabsNavIndicators(nav) {
+  const hint = document.getElementById('app-tabs-scroll-hint');
+  const startIndicator = document.getElementById('app-tabs-indicator-start');
+  const endIndicator = document.getElementById('app-tabs-indicator-end');
+  const hiddenStartEl = document.getElementById('app-tabs-hidden-start');
+  const hiddenEndEl = document.getElementById('app-tabs-hidden-end');
+  if (!hint || !startIndicator || !endIndicator || !hiddenStartEl || !hiddenEndEl) return;
+  const { hasOverflow, canScrollStart, canScrollEnd } = getTabsNavOverflowState(nav);
+  if (!hasOverflow) {
+    hint.classList.add('hidden');
+    return;
+  }
+
+  const navRect = nav.getBoundingClientRect();
+  const buttons = Array.from(nav.querySelectorAll('button'));
+  const hiddenOnRight = [];
+  const hiddenOnLeft = [];
+  buttons.forEach((btn) => {
+    const r = btn.getBoundingClientRect();
+    const label = (btn.textContent || '').trim();
+    if (!label) return;
+    if (r.right > navRect.right + 1) hiddenOnRight.push(label);
+    if (r.left < navRect.left - 1) hiddenOnLeft.push(label);
+  });
+
+  const formatHiddenTabs = (arr) => {
+    const unique = Array.from(new Set(arr));
+    if (unique.length === 0) return '';
+    const shown = unique.slice(0, 2).join(' • ');
+    return unique.length > 2 ? `${shown}…` : shown;
+  };
+
+  hiddenStartEl.textContent = formatHiddenTabs(hiddenOnRight);
+  hiddenEndEl.textContent = formatHiddenTabs(hiddenOnLeft);
+
+  hint.classList.remove('hidden');
+  startIndicator.style.opacity = canScrollStart ? '1' : '0.35';
+  endIndicator.style.opacity = canScrollEnd ? '1' : '0.35';
+}
+
+function handleTabsNavScroll(nav) {
+  if (!nav) return;
+  window.__tabsNavScrollLeft = nav.scrollLeft;
+  updateTabsNavIndicators(nav);
+}
+
+function restoreTabsNavScrollPosition() {
+  const nav = document.getElementById('app-tabs-nav');
+  if (!nav) return;
+  const saved = Number(window.__tabsNavScrollLeft || 0);
+  const apply = () => {
+    nav.scrollLeft = saved;
+    updateTabsNavIndicators(nav);
+  };
+  apply();
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(apply);
 }
