@@ -130,6 +130,13 @@ function getGeneralTableMediumMarkingLabel(typeLabel, serial) {
   return `${typeStr} | ${serialStr}`;
 }
 
+function getGeneralTableAssignmentDisplayLabel(typeLabel, serial) {
+  const typeStr = canonicalGeneralTableTypeName(typeLabel || '');
+  const serialStr = String(serial || '').trim();
+  if (!typeStr || !serialStr) return '-';
+  return getGeneralTableMediumMarkingLabel(typeStr, serialStr);
+}
+
 function isGeneralTableSelectionAllowed(field, type, serial) {
   const typeStr = canonicalGeneralTableTypeName(type || '');
   const serialStr = String(serial || '').trim();
@@ -730,17 +737,17 @@ function renderGeneralTableTab() {
                 ? `<div class="space-y-1">${additionalMeansLines.map((line) => `<div>${escH(line)}</div>`).join('')}</div>`
                 : '-';
               const amralValue = ass.amralType && ass.amralSerial ? `${encodeURIComponent(ass.amralType)}::${encodeURIComponent(ass.amralSerial)}` : '';
-              const amralLabel = ass.amralType && ass.amralSerial ? getGeneralTableMediumMarkingLabel(ass.amralType, ass.amralSerial) : '';
+              const amralLabel = getGeneralTableAssignmentDisplayLabel(ass.amralType, ass.amralSerial);
               const commValue = ass.commType && ass.commSerial ? `${encodeURIComponent(ass.commType)}::${encodeURIComponent(ass.commSerial)}` : '';
-              const commLabel = ass.commType && ass.commSerial ? getGeneralTableMediumMarkingLabel(ass.commType, ass.commSerial) : '';
+              const commLabel = getGeneralTableAssignmentDisplayLabel(ass.commType, ass.commSerial);
               const multitoolValue = ass.multitoolType && ass.multitoolSerial ? `${encodeURIComponent(ass.multitoolType)}::${encodeURIComponent(ass.multitoolSerial)}` : '';
-              const multitoolLabel = ass.multitoolType && ass.multitoolSerial ? getGeneralTableMediumMarkingLabel(ass.multitoolType, ass.multitoolSerial) : '';
+              const multitoolLabel = getGeneralTableAssignmentDisplayLabel(ass.multitoolType, ass.multitoolSerial);
               const tacticalValue = ass.tacticalType && ass.tacticalSerial ? `${encodeURIComponent(ass.tacticalType)}::${encodeURIComponent(ass.tacticalSerial)}` : '';
-              const tacticalLabel = ass.tacticalType && ass.tacticalSerial ? getGeneralTableMediumMarkingLabel(ass.tacticalType, ass.tacticalSerial) : '';
+              const tacticalLabel = getGeneralTableAssignmentDisplayLabel(ass.tacticalType, ass.tacticalSerial);
               const fragValue1 = String(ass.fragGrenade1 || ass.fragGrenade || '');
               const fragValue2 = String(ass.fragGrenade2 || '');
-              const fragListId1 = `general-table-frag1-list-${rowIdx}`;
-              const fragListId2 = `general-table-frag2-list-${rowIdx}`;
+              const fragLabel1 = fragValue1 ? getGeneralTableMediumMarkingLabel('רימון רסס', fragValue1) : '';
+              const fragLabel2 = fragValue2 ? getGeneralTableMediumMarkingLabel('רימון רסס', fragValue2) : '';
               return `
               <tr class="border-b border-slate-100 hover:bg-slate-50">
                 <td class="p-2 text-slate-800 font-medium bg-white border-l border-slate-200 sticky right-0 z-10">${escH(soldier.name || '-')}</td>
@@ -749,63 +756,17 @@ function renderGeneralTableTab() {
                 ${hideWeaponColumns ? '' : `<td class="p-2 text-slate-700 align-top">${weaponTypesHtml}</td>`}
                 ${hideWeaponColumns ? '' : `<td class="p-2 font-mono text-slate-700 align-top">${weaponSerialsHtml}</td>`}
                 ${hideWeaponColumns ? '' : `<td class="p-2 text-slate-700 align-top">${additionalMeansHtml}</td>`}
-                <td class="p-2">
-                  <select
-                    onchange="handleGeneralTableSelectChange(decodeURIComponent('${encodeURIComponent(soldierKey)}'),'amral',this.value)"
-                    class="w-full border border-slate-300 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none">
-                    <option value="" ${!amralValue ? 'selected' : ''}>ללא שיוך</option>
-                    ${renderGeneralTableSelectOptions(amralOptions, amralValue, amralLabel)}
-                  </select>
-                </td>
-                <td class="p-2">
-                  <select
-                    onchange="handleGeneralTableSelectChange(decodeURIComponent('${encodeURIComponent(soldierKey)}'),'comm',this.value)"
-                    class="w-full border border-slate-300 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none">
-                    <option value="" ${!commValue ? 'selected' : ''}>ללא שיוך</option>
-                    ${renderGeneralTableSelectOptions(commOptions, commValue, commLabel)}
-                  </select>
-                </td>
-                <td class="p-2">
-                  <select
-                    onchange="handleGeneralTableSelectChange(decodeURIComponent('${encodeURIComponent(soldierKey)}'),'multitool',this.value)"
-                    class="w-full border border-slate-300 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none">
-                    <option value="" ${!multitoolValue ? 'selected' : ''}>ללא שיוך</option>
-                    ${renderGeneralTableSelectOptions(multitoolOptions, multitoolValue, multitoolLabel)}
-                  </select>
-                </td>
-                <td class="p-2">
-                  <select
-                    onchange="handleGeneralTableSelectChange(decodeURIComponent('${encodeURIComponent(soldierKey)}'),'tactical',this.value)"
-                    class="w-full border border-slate-300 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none">
-                    <option value="" ${!tacticalValue ? 'selected' : ''}>ללא שיוך</option>
-                    ${renderGeneralTableSelectOptions(tacticalOptions, tacticalValue, tacticalLabel)}
-                  </select>
-                </td>
-                <td class="p-2">
-                  <div class="grid grid-cols-1 gap-1">
-                    <input
-                      type="text"
-                      list="${fragListId1}"
-                      value="${escH(fragValue1)}"
-                      onchange="handleGeneralTableSelectChange(decodeURIComponent('${encodeURIComponent(soldierKey)}'),'frag1',this.value)"
-                      placeholder="רסס 1 - הקלד או בחר"
-                      class="w-full border border-slate-300 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-                    />
-                    <datalist id="${fragListId1}">
-                      ${fragOptions.map((serial) => `<option value="${escH(serial)}"></option>`).join('')}
-                    </datalist>
-                    <input
-                      type="text"
-                      list="${fragListId2}"
-                      value="${escH(fragValue2)}"
-                      onchange="handleGeneralTableSelectChange(decodeURIComponent('${encodeURIComponent(soldierKey)}'),'frag2',this.value)"
-                      placeholder="רסס 2 - הקלד או בחר"
-                      class="w-full border border-slate-300 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-                    />
-                    <datalist id="${fragListId2}">
-                      ${fragOptions.map((serial) => `<option value="${escH(serial)}"></option>`).join('')}
-                    </datalist>
-                  </div>
+                <td class="p-2 text-slate-700 align-top">${escH(amralLabel)}</td>
+                <td class="p-2 text-slate-700 align-top">${escH(commLabel)}</td>
+                <td class="p-2 text-slate-700 align-top">${escH(multitoolLabel)}</td>
+                <td class="p-2 text-slate-700 align-top">${escH(tacticalLabel)}</td>
+                <td class="p-2 text-slate-700 align-top">
+                  ${fragValue1 || fragValue2
+                    ? `<div class="space-y-1">
+                        ${fragValue1 ? `<div>${escH(fragLabel1)}</div>` : ''}
+                        ${fragValue2 ? `<div>${escH(fragLabel2)}</div>` : ''}
+                      </div>`
+                    : '-'}
                 </td>
               </tr>`;
             }).join('')}

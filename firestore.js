@@ -108,7 +108,13 @@ async function handleSubmitForm() {
     opticsToAdd.length === 0 && opticsToReturn.length === 0 &&
     commsToAdd.length === 0 && commsToReturn.length === 0
   ) {
-    setState({ submitMessage: 'לא בוצעו שינויים בציוד של החייל.' });
+    if (AppState.user) {
+      // Still persist general-table assignments changed from signatures tab (ammo/comms/optics markings).
+      await handleSaveGeneralTable();
+      setState({ submitMessage: 'לא בוצעו שינויים בציוד, אך נשמרו עדכוני הקצאות.' });
+    } else {
+      setState({ submitMessage: 'לא בוצעו שינויים בציוד של החייל.' });
+    }
     renderApp();
     setTimeout(() => { setState({ submitMessage: '' }); renderApp(); }, 3000);
     return;
@@ -185,6 +191,9 @@ async function handleSubmitForm() {
       soldierName,
       personalNumber
     });
+
+    // Persist general-table assignment updates edited from signatures tab.
+    await handleSaveGeneralTable();
 
     setState({
       formSearchTerm: '',
