@@ -51,26 +51,22 @@ function renderLoginScreen() {
   return `
   <div class="flex items-center justify-center min-h-screen bg-slate-100 font-sans text-slate-800 px-4" dir="rtl">
     <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-200">
-      <div class="flex justify-center mb-6">
-        <div class="px-4 py-2 rounded-lg bg-blue-50 text-blue-800 border border-blue-200 font-bold tracking-wide">NIUD</div>
-      </div>
-      <h2 class="text-2xl font-bold text-center mb-2 text-slate-800">ניהול לוגיסטיקה ניוד</h2>
-      <p class="text-center text-slate-500 mb-8 text-sm">אנא הזן את פרטיך האישיים כדי להמשיך</p>
+      <h2 class="text-2xl font-bold text-center mb-8 text-slate-800">ניהול לוגיסטיקה ניוד</h2>
 
       ${loginError ? `<div class="bg-red-50 text-red-600 p-3 rounded-lg text-sm text-center font-bold border border-red-100 mb-4">${escH(loginError)}</div>` : ''}
 
       <div class="space-y-5">
         <div>
-          <label class="block text-sm font-bold text-slate-700 mb-1">שם פרטי</label>
+          <label class="block text-sm font-bold text-slate-700 mb-1">שם מלא</label>
           <input type="text" autocomplete="off"
             value="${escH(loginUsername)}"
-            placeholder="לדוגמה: ברק"
+            placeholder="לדוגמה: ברק כהן"
             oninput="setState({loginUsername:this.value})"
             onkeydown="if(event.key==='Enter')handleLogin(event)"
             class="w-full border border-slate-300 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"/>
         </div>
         <div>
-          <label class="block text-sm font-bold text-slate-700 mb-1">סיסמה (מספר אישי)</label>
+          <label class="block text-sm font-bold text-slate-700 mb-1">מספר אישי</label>
           <input type="password" inputmode="numeric" autocomplete="new-password"
             value="${escH(loginPassword)}"
             placeholder="הזן מספר אישי"
@@ -80,7 +76,7 @@ function renderLoginScreen() {
         </div>
         <button onclick="handleLogin(event)"
           class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-xl mt-6 shadow-md hover:shadow-lg transition-all">
-          כניסה למערכת
+          כניסה
         </button>
       </div>
     </div>
@@ -185,6 +181,24 @@ function renderMainApp() {
 function setActiveTab(tab) {
   if (tab === 'form') tab = 'signatures';
   if (tab === 'dashboard') tab = 'home';
+
+  // Discard pending changes and reset the form whenever the user leaves "החתמות"
+  if (AppState.activeTab === 'signatures' && tab !== 'signatures') {
+    setState({
+      pendingSignatureAssignments: null,
+      formSearchTerm: '',
+      soldierName: '',
+      personalNumber: '',
+      cart: {}, originalCart: {},
+      cartWeapons: [], originalWeapons: [],
+      cartOptics: [], originalOptics: [],
+      cartComms: [], originalComms: [],
+      selectedOpticType: '', selectedOpticSerial: '',
+      selectedCommType: '', selectedCommSerial: '',
+      selectedFragSerial: '',
+    });
+  }
+
   setState({ activeTab: tab });
   renderApp();
 }

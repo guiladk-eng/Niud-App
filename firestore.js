@@ -109,7 +109,11 @@ async function handleSubmitForm() {
     commsToAdd.length === 0 && commsToReturn.length === 0
   ) {
     if (AppState.user) {
-      // Still persist general-table assignments changed from signatures tab (ammo/comms/optics markings).
+      // Merge pending signature assignments then save
+      if (AppState.pendingSignatureAssignments !== null) {
+        const merged = { ...(AppState.generalTableAssignments || {}), ...AppState.pendingSignatureAssignments };
+        setState({ generalTableAssignments: merged, pendingSignatureAssignments: null });
+      }
       await handleSaveGeneralTable();
       setState({ submitMessage: 'לא בוצעו שינויים בציוד, אך נשמרו עדכוני הקצאות.' });
     } else {
@@ -192,7 +196,11 @@ async function handleSubmitForm() {
       personalNumber
     });
 
-    // Persist general-table assignment updates edited from signatures tab.
+    // Merge pending signature assignments then persist
+    if (AppState.pendingSignatureAssignments !== null) {
+      const merged = { ...(AppState.generalTableAssignments || {}), ...AppState.pendingSignatureAssignments };
+      setState({ generalTableAssignments: merged, pendingSignatureAssignments: null });
+    }
     await handleSaveGeneralTable();
 
     setState({
@@ -202,6 +210,9 @@ async function handleSubmitForm() {
       cartOptics: [], originalOptics: [],
       cartComms: [], originalComms: [],
       soldierName: '', personalNumber: '',
+      selectedOpticType: '', selectedOpticSerial: '',
+      selectedCommType: '', selectedCommSerial: '',
+      selectedFragSerial: '',
       submitMessage: 'הציוד עודכן ונשמר בהצלחה בהיסטוריה!'
     });
     window.scrollTo(0, 0);
@@ -317,20 +328,36 @@ async function handleSaveGeneralTable() {
 
     Object.keys(source).forEach((soldierKey) => {
       const row = source[soldierKey] || {};
-      const amralType = String((row.amralType || '').trim());
-      const amralSerial = String((row.amralSerial || '').trim());
-      const commType = String((row.commType || '').trim());
-      const commSerial = String((row.commSerial || '').trim());
-      const multitoolType = String((row.multitoolType || '').trim());
-      const multitoolSerial = String((row.multitoolSerial || '').trim());
-      const tacticalType = String((row.tacticalType || '').trim());
-      const tacticalSerial = String((row.tacticalSerial || '').trim());
-      const fragGrenade1 = String((row.fragGrenade1 || row.fragGrenade || '').trim());
-      const fragGrenade2 = String((row.fragGrenade2 || '').trim());
 
-      if (!amralType && !amralSerial && !commType && !commSerial && !multitoolType && !multitoolSerial && !tacticalType && !tacticalSerial && !fragGrenade1 && !fragGrenade2) return;
+      // New array-based fields
+      const opticsItems = Array.isArray(row.opticsItems)
+        ? row.opticsItems.filter((i) => i && (i.type || i.serial))
+        : [];
+      const commsItems = Array.isArray(row.commsItems)
+        ? row.commsItems.filter((i) => i && (i.type || i.serial))
+        : [];
+
+      // Legacy scalar fields (kept for backward compat with old data)
+      const amralType      = String((row.amralType      || '').trim());
+      const amralSerial    = String((row.amralSerial    || '').trim());
+      const commType       = String((row.commType       || '').trim());
+      const commSerial     = String((row.commSerial     || '').trim());
+      const multitoolType  = String((row.multitoolType  || '').trim());
+      const multitoolSerial= String((row.multitoolSerial|| '').trim());
+      const tacticalType   = String((row.tacticalType   || '').trim());
+      const tacticalSerial = String((row.tacticalSerial || '').trim());
+      const fragGrenade1   = String((row.fragGrenade1 || row.fragGrenade || '').trim());
+      const fragGrenade2   = String((row.fragGrenade2   || '').trim());
+
+      const hasData = opticsItems.length > 0 || commsItems.length > 0 ||
+        amralType || amralSerial || commType || commSerial ||
+        multitoolType || multitoolSerial || tacticalType || tacticalSerial ||
+        fragGrenade1 || fragGrenade2;
+      if (!hasData) return;
 
       cleaned[soldierKey] = {
+        opticsItems,
+        commsItems,
         amralType,
         amralSerial,
         commType,

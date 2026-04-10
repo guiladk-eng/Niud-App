@@ -1,6 +1,29 @@
 // ===== ui-form.js =====
 // טאב טופס מאסטר - גרסה סופית הכוללת איפוס אגרסיבי ותיבות הקלדה חכמות למספרים סידוריים
 
+// ---------- local helpers (also defined in ui-general-table.js) ----------
+// Defined here as well so ui-form.js works even if ui-general-table.js has not yet loaded
+// or a cached old version is served.
+
+function getSoldierOpticsItems(ass) {
+  const a = ass || {};
+  if (Array.isArray(a.opticsItems)) return a.opticsItems;
+  const items = [];
+  if (a.amralType && a.amralSerial) items.push({ type: a.amralType, serial: a.amralSerial });
+  return items;
+}
+
+function getSoldierCommsItems(ass) {
+  const a = ass || {};
+  if (Array.isArray(a.commsItems)) return a.commsItems;
+  const items = [];
+  if (a.commType      && a.commSerial)      items.push({ type: a.commType,      serial: a.commSerial });
+  if (a.multitoolType && a.multitoolSerial) items.push({ type: a.multitoolType, serial: a.multitoolSerial });
+  if (a.tacticalType  && a.tacticalSerial)  items.push({ type: a.tacticalType,  serial: a.tacticalSerial });
+  return items;
+}
+// -----------------------------------------------------------------------
+
 function renderSignaturesTab() {
   const {
     soldierName, personalNumber, formSearchTerm,
@@ -8,6 +31,7 @@ function renderSignaturesTab() {
     opticsData, selectedOpticType, selectedOpticSerial,
     commsData, selectedCommType, selectedCommSerial,
     ammoData, generalTableAssignments,
+    selectedFragSerial,
     isSubmitting
   } = AppState;
 
@@ -15,7 +39,7 @@ function renderSignaturesTab() {
     ? AppState.soldiersData
     : Object.values(AppState.soldiersData || {});
   const signatureSoldierKey = String(personalNumber || '').trim();
-  const sigAss = (generalTableAssignments && signatureSoldierKey && generalTableAssignments[signatureSoldierKey]) || {};
+  const sigAss = getSignaturePendingAss(signatureSoldierKey);
   const fragOptions = ((ammoData && ammoData['רימון רסס']) || [])
     .map((serial) => String(serial || '').trim())
     .filter(Boolean);
@@ -89,7 +113,8 @@ function renderSignaturesTab() {
         <div class="w-full md:w-1/3">
           <label class="block text-sm font-medium text-slate-700 mb-1">סוג נשק</label>
           <select onchange="setSelectedWeaponType(this.value)"
-            class="w-full border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+            ${!signatureSoldierKey ? 'disabled' : ''}
+            class="w-full border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:bg-slate-100 disabled:text-slate-400">
             <option value="" ${!selectedWeaponType ? 'selected' : ''} disabled>בחר סוג...</option>
             ${Object.keys(weaponsData).map(t => `<option value="${escH(t)}" ${selectedWeaponType===t?'selected':''}>${escH(t)}</option>`).join('')}
           </select>
@@ -108,7 +133,7 @@ function renderSignaturesTab() {
           </datalist>
         </div>
         <div class="w-full md:w-1/3">
-          <button type="button" onclick="handleAddWeapon()" ${!selectedWeaponType||!selectedWeaponSerial?'disabled':''}
+          <button type="button" onclick="handleAddWeapon()" ${!signatureSoldierKey||!selectedWeaponType||!selectedWeaponSerial?'disabled':''}
             class="w-full bg-slate-800 hover:bg-slate-900 disabled:bg-slate-300 text-white p-2.5 rounded-lg font-bold transition-colors">
             הוסף לחייל
           </button>
@@ -141,7 +166,8 @@ function renderSignaturesTab() {
         <div class="w-full md:w-1/3">
           <label class="block text-sm font-medium text-slate-700 mb-1">סוג אופטיקה</label>
           <select onchange="setSelectedOpticType(this.value)"
-            class="w-full border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+            ${!signatureSoldierKey ? 'disabled' : ''}
+            class="w-full border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:bg-slate-100 disabled:text-slate-400">
             <option value="" ${!selectedOpticType ? 'selected' : ''} disabled>בחר סוג...</option>
             ${Object.keys(opticsData || {}).map(t => `<option value="${escH(t)}" ${selectedOpticType===t?'selected':''}>${escH(t)}</option>`).join('')}
           </select>
@@ -160,22 +186,27 @@ function renderSignaturesTab() {
           </select>
         </div>
         <div class="w-full md:w-1/3">
-          <button type="button" onclick="signatureAssignAmral()" ${!selectedOpticType||!selectedOpticSerial?'disabled':''}
+          <button type="button" onclick="signatureAssignAmral()" ${!signatureSoldierKey||!selectedOpticType||!selectedOpticSerial?'disabled':''}
             class="w-full bg-slate-800 hover:bg-slate-900 disabled:bg-slate-300 text-white p-2.5 rounded-lg font-bold transition-colors">
             הוסף לחייל
           </button>
         </div>
       </div>
-      ${sigAss.amralType && sigAss.amralSerial ? `
-      <div class="border-t border-slate-100 pt-4 space-y-2">
-        <div class="flex justify-between items-center px-3 py-2 rounded-lg border bg-slate-50 border-slate-200 text-slate-800">
-          <span class="font-medium">${escH(getSignatureMarkingLabel(sigAss.amralType, sigAss.amralSerial))}</span>
-          <button type="button" onclick="signatureClearAmralAssignment()"
-            class="text-red-500 hover:text-red-700 p-1 bg-white rounded shadow-sm border border-red-100">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-          </button>
-        </div>
-      </div>` : `<div class="text-sm text-slate-500 border-t border-slate-100 pt-4">אין אופטיקה חתומה על החייל.</div>`}
+      ${(() => {
+        const optItems = getSoldierOpticsItems(sigAss);
+        if (optItems.length === 0) return `<div class="text-sm text-slate-500 border-t border-slate-100 pt-4">אין אופטיקה חתומה על החייל.</div>`;
+        return `<div class="border-t border-slate-100 pt-4 space-y-2">
+          ${optItems.map((item) => `
+            <div class="flex justify-between items-center px-3 py-2 rounded-lg border bg-slate-50 border-slate-200 text-slate-800">
+              <span class="font-medium">${escH(getSignatureMarkingLabel(item.type, item.serial))}</span>
+              <button type="button"
+                onclick="signatureClearAmralAssignment(decodeURIComponent('${encodeURIComponent(item.type)}'), decodeURIComponent('${encodeURIComponent(item.serial)}'))"
+                class="text-red-500 hover:text-red-700 p-1 bg-white rounded shadow-sm border border-red-100">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              </button>
+            </div>`).join('')}
+        </div>`;
+      })()}
     </div>
 
     <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
@@ -189,7 +220,8 @@ function renderSignaturesTab() {
         <div class="w-full md:w-1/3">
           <label class="block text-sm font-medium text-slate-700 mb-1">סוג תקשוב</label>
           <select onchange="setSelectedCommType(this.value)"
-            class="w-full border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+            ${!signatureSoldierKey ? 'disabled' : ''}
+            class="w-full border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:bg-slate-100 disabled:text-slate-400">
             <option value="" ${!selectedCommType ? 'selected' : ''} disabled>בחר סוג...</option>
             ${Object.keys(commsData || {}).map(t => `<option value="${escH(t)}" ${selectedCommType===t?'selected':''}>${escH(t)}</option>`).join('')}
           </select>
@@ -208,36 +240,27 @@ function renderSignaturesTab() {
           </select>
         </div>
         <div class="w-full md:w-1/3">
-          <button type="button" onclick="signatureAssignCommsLike()" ${!selectedCommType||!selectedCommSerial?'disabled':''}
+          <button type="button" onclick="signatureAssignCommsLike()" ${!signatureSoldierKey||!selectedCommType||!selectedCommSerial?'disabled':''}
             class="w-full bg-slate-800 hover:bg-slate-900 disabled:bg-slate-300 text-white p-2.5 rounded-lg font-bold transition-colors">
             הוסף לחייל
           </button>
         </div>
       </div>
-      ${(sigAss.commType && sigAss.commSerial) || (sigAss.multitoolType && sigAss.multitoolSerial) || (sigAss.tacticalType && sigAss.tacticalSerial) ? `
-      <div class="border-t border-slate-100 pt-4 space-y-2">
-          ${sigAss.commType && sigAss.commSerial ? `
+      ${(() => {
+        const commsItems = getSoldierCommsItems(sigAss);
+        if (commsItems.length === 0) return `<div class="text-sm text-slate-500 border-t border-slate-100 pt-4">אין תקשוב חתום על החייל.</div>`;
+        return `<div class="border-t border-slate-100 pt-4 space-y-2">
+          ${commsItems.map((item) => `
             <div class="flex justify-between items-center px-3 py-2 rounded-lg border bg-slate-50 border-slate-200 text-slate-800">
-              <span class="font-medium">${escH(getSignatureMarkingLabel(sigAss.commType, sigAss.commSerial))}</span>
-              <button type="button" onclick="signatureClearCommsLikeAssignment('comm')" class="text-red-500 hover:text-red-700 p-1 bg-white rounded shadow-sm border border-red-100">
+              <span class="font-medium">${escH(getSignatureMarkingLabel(item.type, item.serial))}</span>
+              <button type="button"
+                onclick="signatureClearCommsLikeAssignment(decodeURIComponent('${encodeURIComponent(item.type)}'), decodeURIComponent('${encodeURIComponent(item.serial)}'))"
+                class="text-red-500 hover:text-red-700 p-1 bg-white rounded shadow-sm border border-red-100">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
               </button>
-            </div>` : ''}
-          ${sigAss.multitoolType && sigAss.multitoolSerial ? `
-            <div class="flex justify-between items-center px-3 py-2 rounded-lg border bg-slate-50 border-slate-200 text-slate-800">
-              <span class="font-medium">${escH(getSignatureMarkingLabel(sigAss.multitoolType, sigAss.multitoolSerial))}</span>
-              <button type="button" onclick="signatureClearCommsLikeAssignment('multitool')" class="text-red-500 hover:text-red-700 p-1 bg-white rounded shadow-sm border border-red-100">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-              </button>
-            </div>` : ''}
-          ${sigAss.tacticalType && sigAss.tacticalSerial ? `
-            <div class="flex justify-between items-center px-3 py-2 rounded-lg border bg-slate-50 border-slate-200 text-slate-800">
-              <span class="font-medium">${escH(getSignatureMarkingLabel(sigAss.tacticalType, sigAss.tacticalSerial))}</span>
-              <button type="button" onclick="signatureClearCommsLikeAssignment('tactical')" class="text-red-500 hover:text-red-700 p-1 bg-white rounded shadow-sm border border-red-100">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-              </button>
-            </div>` : ''}
-      </div>` : `<div class="text-sm text-slate-500 border-t border-slate-100 pt-4">אין תקשוב חתום על החייל.</div>`}
+            </div>`).join('')}
+        </div>`;
+      })()}
     </div>
 
     <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
@@ -247,32 +270,43 @@ function renderSignaturesTab() {
         </svg>
         תחמושת של החייל
       </h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">רימון רסס 1</label>
-          <select onchange="if('${escH(signatureSoldierKey)}'){handleGeneralTableSelectChange(decodeURIComponent('${encodeURIComponent(signatureSoldierKey)}'),'frag1',this.value)}"
+      <div class="flex flex-col md:flex-row gap-4 items-end mb-4">
+        <div class="w-full md:w-2/3">
+          <label class="block text-sm font-medium text-slate-700 mb-1">בחר רימון רסס</label>
+          <select onchange="setState({selectedFragSerial:this.value});renderApp()"
             ${!signatureSoldierKey ? 'disabled' : ''}
             class="w-full border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:bg-slate-100 disabled:text-slate-400">
-            <option value="" ${!frag1Current ? 'selected' : ''}>ללא שיוך</option>
-            ${fragOptions.map((serial) => `<option value="${escH(serial)}" ${serial === frag1Current ? 'selected' : ''}>${escH(getSignatureMarkingLabel('רימון רסס', serial))}</option>`).join('')}
+            <option value="" ${!selectedFragSerial ? 'selected' : ''}>${signatureSoldierKey ? 'בחר סימון...' : 'בחר קודם חייל'}</option>
+            ${fragOptions.map((serial) => `<option value="${escH(serial)}" ${selectedFragSerial===serial?'selected':''}>${escH(getSignatureMarkingLabel('רימון רסס', serial))}</option>`).join('')}
           </select>
         </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">רימון רסס 2</label>
-          <select onchange="if('${escH(signatureSoldierKey)}'){handleGeneralTableSelectChange(decodeURIComponent('${encodeURIComponent(signatureSoldierKey)}'),'frag2',this.value)}"
-            ${!signatureSoldierKey ? 'disabled' : ''}
-            class="w-full border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:bg-slate-100 disabled:text-slate-400">
-            <option value="" ${!frag2Current ? 'selected' : ''}>ללא שיוך</option>
-            ${fragOptions.map((serial) => `<option value="${escH(serial)}" ${serial === frag2Current ? 'selected' : ''}>${escH(getSignatureMarkingLabel('רימון רסס', serial))}</option>`).join('')}
-          </select>
+        <div class="w-full md:w-1/3">
+          <button type="button" onclick="signatureAssignFrag()" ${!signatureSoldierKey||!selectedFragSerial?'disabled':''}
+            class="w-full bg-slate-800 hover:bg-slate-900 disabled:bg-slate-300 text-white p-2.5 rounded-lg font-bold transition-colors">
+            הוסף לחייל
+          </button>
         </div>
       </div>
       ${(frag1Current || frag2Current) ? `
-        <div class="border-t border-slate-100 pt-4 mt-4 space-y-2">
-          ${frag1Current ? `<div class="px-3 py-2 rounded-lg border bg-slate-50 border-slate-200 text-slate-800">${escH(getSignatureMarkingLabel('רימון רסס', frag1Current))}</div>` : ''}
-          ${frag2Current ? `<div class="px-3 py-2 rounded-lg border bg-slate-50 border-slate-200 text-slate-800">${escH(getSignatureMarkingLabel('רימון רסס', frag2Current))}</div>` : ''}
+        <div class="border-t border-slate-100 pt-4 space-y-2">
+          ${frag1Current ? `
+          <div class="flex justify-between items-center px-3 py-2 rounded-lg border bg-slate-50 border-slate-200 text-slate-800">
+            <span class="font-medium">${escH(getSignatureMarkingLabel('רימון רסס', frag1Current))}</span>
+            <button type="button" onclick="signatureClearFragAssignment('frag1')"
+              class="text-red-500 hover:text-red-700 p-1 bg-white rounded shadow-sm border border-red-100">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            </button>
+          </div>` : ''}
+          ${frag2Current ? `
+          <div class="flex justify-between items-center px-3 py-2 rounded-lg border bg-slate-50 border-slate-200 text-slate-800">
+            <span class="font-medium">${escH(getSignatureMarkingLabel('רימון רסס', frag2Current))}</span>
+            <button type="button" onclick="signatureClearFragAssignment('frag2')"
+              class="text-red-500 hover:text-red-700 p-1 bg-white rounded shadow-sm border border-red-100">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            </button>
+          </div>` : ''}
         </div>
-      ` : `<div class="text-sm text-slate-500 border-t border-slate-100 pt-4 mt-4">אין רימוני רסס חתומים על החייל.</div>`}
+      ` : `<div class="text-sm text-slate-500 border-t border-slate-100 pt-4">אין רימוני רסס חתומים על החייל.</div>`}
     </div>
 
     <div class="sticky bottom-4 mt-8">
@@ -307,12 +341,54 @@ function getSignatureSelectedSoldierKey() {
   return String(AppState.personalNumber || '').trim();
 }
 
+// ── Pending-state helpers ─────────────────────────────────────────────────────
+
+// Returns the current (pending or committed) assignments for a given key.
+// When pending exists but doesn't have an entry for this key yet (e.g. Firestore
+// updated generalTableAssignments after pending was initialised), fall back to
+// the committed entry so we never lose visible data.
+function getSignaturePendingAss(key) {
+  const committed = (AppState.generalTableAssignments || {})[key] || {};
+  const pending = AppState.pendingSignatureAssignments;
+  if (pending === null) return committed;
+  if (pending[key] !== undefined) return pending[key];
+  return committed;
+}
+
+// Lazily initialise pending from committed state, then write fields for a key
+function signatureSetPendingField(soldierKey, fieldObj) {
+  if (AppState.pendingSignatureAssignments === null) {
+    const copy = JSON.parse(JSON.stringify(AppState.generalTableAssignments || {}));
+    setState({ pendingSignatureAssignments: copy });
+  }
+  const updated = { ...(AppState.pendingSignatureAssignments || {}) };
+  updated[soldierKey] = { ...(updated[soldierKey] || {}), ...fieldObj };
+  setState({ pendingSignatureAssignments: updated });
+}
+
+// ── Assignment functions (all write to pending, never to generalTableAssignments) ──
+
+// Adds an optics or comms item to a soldier's pending assignment, handling transfer.
 function signatureAssignGeneralTableWithTransfer(field, type, serial) {
   const key = getSignatureSelectedSoldierKey();
   if (!key) return false;
-  const normalizedType = String(type || '').trim();
+  const normalizedType = typeof canonicalGeneralTableTypeName === 'function'
+    ? canonicalGeneralTableTypeName(String(type || '').trim())
+    : String(type || '').trim();
   const normalizedSerial = String(serial || '').trim();
   if (!normalizedType || !normalizedSerial) return false;
+
+  // Check if THIS soldier already has this exact item
+  const currentAss = getSignaturePendingAss(key);
+  const isOptics = (field === 'amral');
+  const existingItems = isOptics ? getSoldierOpticsItems(currentAss) : getSoldierCommsItems(currentAss);
+  if (existingItems.some((i) =>
+    canonicalGeneralTableTypeName(i.type || '') === normalizedType &&
+    String(i.serial || '').trim() === normalizedSerial
+  )) {
+    window.alert('פריט זה כבר חתום על החייל הזה.');
+    return false;
+  }
 
   const duplicateKey = typeof findGeneralTableDuplicate === 'function'
     ? findGeneralTableDuplicate(field, `${normalizedType}::${normalizedSerial}`, key)
@@ -330,12 +406,48 @@ function signatureAssignGeneralTableWithTransfer(field, type, serial) {
       `הפריט ${label} כבר חתום על ${currentHolderName}.\nהאם להעביר אותו ל-${targetHolderName}?`
     );
     if (!confirmTransfer) return false;
-    handleGeneralTableSelectChange(duplicateKey, field, '');
+    signatureRemoveItemFromPending(field, duplicateKey, normalizedType, normalizedSerial);
   }
 
-  const value = `${encodeURIComponent(normalizedType)}::${encodeURIComponent(normalizedSerial)}`;
-  handleGeneralTableSelectChange(key, field, value);
+  signatureAddItemToPending(field, key, normalizedType, normalizedSerial);
   return true;
+}
+
+// Low-level: add {type,serial} to opticsItems or commsItems in pending
+function signatureAddItemToPending(field, soldierKey, type, serial) {
+  const ass = getSignaturePendingAss(soldierKey);
+  if (field === 'amral') {
+    const items = getSoldierOpticsItems(ass);
+    signatureSetPendingField(soldierKey, {
+      opticsItems: [...items, { type, serial }],
+      amralType: '', amralSerial: ''
+    });
+  } else {
+    const items = getSoldierCommsItems(ass);
+    signatureSetPendingField(soldierKey, {
+      commsItems: [...items, { type, serial }],
+      commType: '', commSerial: '', multitoolType: '', multitoolSerial: '', tacticalType: '', tacticalSerial: ''
+    });
+  }
+}
+
+// Low-level: remove {type,serial} from opticsItems or commsItems in pending
+function signatureRemoveItemFromPending(field, soldierKey, type, serial) {
+  const ass = getSignaturePendingAss(soldierKey);
+  const canon = typeof canonicalGeneralTableTypeName === 'function'
+    ? canonicalGeneralTableTypeName : (x) => x;
+  if (field === 'amral') {
+    const items = getSoldierOpticsItems(ass).filter((i) =>
+      !(canon(i.type || '') === type && String(i.serial || '').trim() === serial));
+    signatureSetPendingField(soldierKey, { opticsItems: items, amralType: '', amralSerial: '' });
+  } else {
+    const items = getSoldierCommsItems(ass).filter((i) =>
+      !(canon(i.type || '') === type && String(i.serial || '').trim() === serial));
+    signatureSetPendingField(soldierKey, {
+      commsItems: items,
+      commType: '', commSerial: '', multitoolType: '', multitoolSerial: '', tacticalType: '', tacticalSerial: ''
+    });
+  }
 }
 
 function signatureAssignAmral() {
@@ -346,37 +458,79 @@ function signatureAssignAmral() {
   setState({ selectedOpticType: '', selectedOpticSerial: '' }); renderApp();
 }
 
-function signatureClearAmralAssignment() {
+function signatureClearAmralAssignment(type, serial) {
   const key = getSignatureSelectedSoldierKey();
   if (!key) return;
-  handleGeneralTableSelectChange(key, 'amral', '');
-}
-
-function signatureCommsFieldFromType(type) {
-  const t = String(type || '').trim();
-  if (t === 'קשר 710') return 'comm';
-  if (t === 'אולר') return 'multitool';
-  if (t === 'מטען טקטי לאולר' || t === 'מטען נייד לאולר' || t === 'מטען נייד אולר') return 'tactical';
-  return '';
+  const canon = typeof canonicalGeneralTableTypeName === 'function' ? canonicalGeneralTableTypeName : (x) => x;
+  signatureRemoveItemFromPending('amral', key, canon(String(type || '').trim()), String(serial || '').trim());
+  renderApp();
 }
 
 function signatureAssignCommsLike() {
   const key = getSignatureSelectedSoldierKey();
   if (!key || !AppState.selectedCommType || !AppState.selectedCommSerial) return;
-  const field = signatureCommsFieldFromType(AppState.selectedCommType);
-  if (!field) {
-    window.alert('אפשר להחתים כאן רק קשר 710, אולר או מטען טקטי לאולר.');
-    return;
-  }
-  const changed = signatureAssignGeneralTableWithTransfer(field, AppState.selectedCommType, AppState.selectedCommSerial);
+  const changed = signatureAssignGeneralTableWithTransfer('comm', AppState.selectedCommType, AppState.selectedCommSerial);
   if (!changed) return;
   setState({ selectedCommType: '', selectedCommSerial: '' }); renderApp();
 }
 
-function signatureClearCommsLikeAssignment(field) {
+function signatureClearCommsLikeAssignment(type, serial) {
   const key = getSignatureSelectedSoldierKey();
   if (!key) return;
-  handleGeneralTableSelectChange(key, field, '');
+  const canon = typeof canonicalGeneralTableTypeName === 'function' ? canonicalGeneralTableTypeName : (x) => x;
+  signatureRemoveItemFromPending('comm', key, canon(String(type || '').trim()), String(serial || '').trim());
+  renderApp();
+}
+
+function signatureAssignFrag() {
+  const key = getSignatureSelectedSoldierKey();
+  const serial = String(AppState.selectedFragSerial || '').trim();
+  if (!key || !serial) return;
+
+  const sigAss = getSignaturePendingAss(key);
+  const frag1 = String(sigAss.fragGrenade1 || sigAss.fragGrenade || '').trim();
+  const frag2 = String(sigAss.fragGrenade2 || '').trim();
+
+  if (frag1 && frag2) {
+    window.alert('החייל כבר חתום על 2 רימוני רסס. הסר אחד לפני שמוסיפים רימון נוסף.');
+    return;
+  }
+  if (frag1 === serial || frag2 === serial) {
+    window.alert('רימון זה כבר חתום על החייל הזה.');
+    return;
+  }
+
+  const duplicateKey = typeof findGeneralTableDuplicate === 'function'
+    ? findGeneralTableDuplicate('frag', serial, key)
+    : null;
+
+  if (duplicateKey) {
+    const currentHolderName = typeof getGeneralTableSoldierNameByKey === 'function'
+      ? getGeneralTableSoldierNameByKey(duplicateKey)
+      : duplicateKey;
+    const targetHolderName = typeof getGeneralTableSoldierNameByKey === 'function'
+      ? getGeneralTableSoldierNameByKey(key)
+      : key;
+    const label = getSignatureMarkingLabel('רימון רסס', serial);
+    const confirmTransfer = window.confirm(
+      `הרימון ${label} כבר חתום על ${currentHolderName}.\nהאם להעביר אותו ל-${targetHolderName}?`
+    );
+    if (!confirmTransfer) return;
+    const otherAss = getSignaturePendingAss(duplicateKey);
+    const otherFrag1 = String(otherAss.fragGrenade1 || otherAss.fragGrenade || '').trim();
+    signatureSetPendingField(duplicateKey, otherFrag1 === serial ? { fragGrenade1: '' } : { fragGrenade2: '' });
+  }
+
+  signatureSetPendingField(key, frag1 ? { fragGrenade2: serial } : { fragGrenade1: serial });
+  setState({ selectedFragSerial: '' });
+  renderApp();
+}
+
+function signatureClearFragAssignment(slot) {
+  const key = getSignatureSelectedSoldierKey();
+  if (!key) return;
+  signatureSetPendingField(key, slot === 'frag1' ? { fragGrenade1: '' } : { fragGrenade2: '' });
+  renderApp();
 }
 
 function formatSoldierSearchValue(soldier) {

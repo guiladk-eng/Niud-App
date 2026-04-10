@@ -465,12 +465,11 @@ function dbGetGeneralTableHoldersForSerial(stateKey, type, serial) {
     const row = assignments[soldierKey] || {};
     let isMatch = false;
     if (stateKey === 'opticsData') {
-      isMatch = String(row.amralType || '').trim() === typeStr && String(row.amralSerial || '').trim() === serialStr;
+      const optItems = typeof getSoldierOpticsItems === 'function' ? getSoldierOpticsItems(row) : [];
+      isMatch = optItems.some((i) => String(i.type || '').trim() === typeStr && String(i.serial || '').trim() === serialStr);
     } else if (stateKey === 'commsData') {
-      const isCommMatch = String(row.commType || '').trim() === typeStr && String(row.commSerial || '').trim() === serialStr;
-      const isMultitoolMatch = String(row.multitoolType || '').trim() === typeStr && String(row.multitoolSerial || '').trim() === serialStr;
-      const isTacticalMatch = String(row.tacticalType || '').trim() === typeStr && String(row.tacticalSerial || '').trim() === serialStr;
-      isMatch = isCommMatch || isMultitoolMatch || isTacticalMatch;
+      const commsItems = typeof getSoldierCommsItems === 'function' ? getSoldierCommsItems(row) : [];
+      isMatch = commsItems.some((i) => String(i.type || '').trim() === typeStr && String(i.serial || '').trim() === serialStr);
     } else if (stateKey === 'ammoData' && typeStr === 'רימון רסס') {
       const frag1 = String(row.fragGrenade1 || row.fragGrenade || '').trim();
       const frag2 = String(row.fragGrenade2 || '').trim();
@@ -491,12 +490,11 @@ function dbGetGeneralTableHoldersForType(stateKey, type) {
     const row = assignments[soldierKey] || {};
     let isMatch = false;
     if (stateKey === 'opticsData') {
-      isMatch = String(row.amralType || '').trim() === typeStr && String(row.amralSerial || '').trim() !== '';
+      const optItems = typeof getSoldierOpticsItems === 'function' ? getSoldierOpticsItems(row) : [];
+      isMatch = optItems.some((i) => String(i.type || '').trim() === typeStr);
     } else if (stateKey === 'commsData') {
-      const isCommMatch = String(row.commType || '').trim() === typeStr && String(row.commSerial || '').trim() !== '';
-      const isMultitoolMatch = String(row.multitoolType || '').trim() === typeStr && String(row.multitoolSerial || '').trim() !== '';
-      const isTacticalMatch = String(row.tacticalType || '').trim() === typeStr && String(row.tacticalSerial || '').trim() !== '';
-      isMatch = isCommMatch || isMultitoolMatch || isTacticalMatch;
+      const commsItems = typeof getSoldierCommsItems === 'function' ? getSoldierCommsItems(row) : [];
+      isMatch = commsItems.some((i) => String(i.type || '').trim() === typeStr);
     } else if (stateKey === 'ammoData' && typeStr === 'רימון רסס') {
       const frag1 = String(row.fragGrenade1 || row.fragGrenade || '').trim();
       const frag2 = String(row.fragGrenade2 || '').trim();
@@ -510,14 +508,10 @@ function dbGetGeneralTableHoldersForType(stateKey, type) {
 
 function dbIsGeneralTableRowEmpty(row) {
   if (!row) return true;
-  return !String(row.amralType || '').trim()
-    && !String(row.amralSerial || '').trim()
-    && !String(row.commType || '').trim()
-    && !String(row.commSerial || '').trim()
-    && !String(row.multitoolType || '').trim()
-    && !String(row.multitoolSerial || '').trim()
-    && !String(row.tacticalType || '').trim()
-    && !String(row.tacticalSerial || '').trim()
+  const optItems   = typeof getSoldierOpticsItems === 'function' ? getSoldierOpticsItems(row)  : [];
+  const commsItems = typeof getSoldierCommsItems  === 'function' ? getSoldierCommsItems(row)   : [];
+  return optItems.length === 0
+    && commsItems.length === 0
     && !String(row.fragGrenade1 || row.fragGrenade || '').trim()
     && !String(row.fragGrenade2 || '').trim();
 }
@@ -537,29 +531,21 @@ function dbCleanupGeneralTableAfterSerialRemoval(stateKey, type, serial) {
     let changed = false;
 
     if (stateKey === 'opticsData') {
-      const isMatch = String(row.amralType || '').trim() === typeStr && String(row.amralSerial || '').trim() === serialStr;
-      if (isMatch) {
-        nextRow.amralType = '';
-        nextRow.amralSerial = '';
+      const items = typeof getSoldierOpticsItems === 'function' ? getSoldierOpticsItems(row) : [];
+      const next = items.filter((i) => !(String(i.type || '').trim() === typeStr && String(i.serial || '').trim() === serialStr));
+      if (next.length !== items.length) {
+        nextRow.opticsItems = next;
+        nextRow.amralType = ''; nextRow.amralSerial = '';
         changed = true;
       }
     } else if (stateKey === 'commsData') {
-      const isCommMatch = String(row.commType || '').trim() === typeStr && String(row.commSerial || '').trim() === serialStr;
-      const isMultitoolMatch = String(row.multitoolType || '').trim() === typeStr && String(row.multitoolSerial || '').trim() === serialStr;
-      const isTacticalMatch = String(row.tacticalType || '').trim() === typeStr && String(row.tacticalSerial || '').trim() === serialStr;
-      if (isCommMatch) {
-        nextRow.commType = '';
-        nextRow.commSerial = '';
-        changed = true;
-      }
-      if (isMultitoolMatch) {
-        nextRow.multitoolType = '';
-        nextRow.multitoolSerial = '';
-        changed = true;
-      }
-      if (isTacticalMatch) {
-        nextRow.tacticalType = '';
-        nextRow.tacticalSerial = '';
+      const items = typeof getSoldierCommsItems === 'function' ? getSoldierCommsItems(row) : [];
+      const next = items.filter((i) => !(String(i.type || '').trim() === typeStr && String(i.serial || '').trim() === serialStr));
+      if (next.length !== items.length) {
+        nextRow.commsItems = next;
+        nextRow.commType = ''; nextRow.commSerial = '';
+        nextRow.multitoolType = ''; nextRow.multitoolSerial = '';
+        nextRow.tacticalType = ''; nextRow.tacticalSerial = '';
         changed = true;
       }
     } else if (stateKey === 'ammoData' && typeStr === 'רימון רסס') {

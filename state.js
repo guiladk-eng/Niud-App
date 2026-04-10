@@ -52,6 +52,9 @@ const AppState = {
   selectedCommSerial: '',
   cartComms: [],
   originalComms: [],
+  selectedFragSerial: '',
+  // Staged assignment changes — written from "החתמות", committed to generalTableAssignments only on save
+  pendingSignatureAssignments: null,
 
   // Firestore data
   submissionHistory: [],

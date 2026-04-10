@@ -69,6 +69,32 @@ function getGeneralTableCurrentAdditionalMeansMap() {
   return map;
 }
 
+// ── Multi-item array helpers (backward-compat with old single-field format) ──
+
+// Returns the optics items for a soldier assignment record.
+// New format: opticsItems: [{type, serial}]
+// Old format: amralType + amralSerial (single item)
+function getSoldierOpticsItems(ass) {
+  const a = ass || {};
+  if (Array.isArray(a.opticsItems)) return a.opticsItems;
+  const items = [];
+  if (a.amralType && a.amralSerial) items.push({ type: a.amralType, serial: a.amralSerial });
+  return items;
+}
+
+// Returns the comms items for a soldier assignment record.
+// New format: commsItems: [{type, serial}]
+// Old format: commType/commSerial + multitoolType/multitoolSerial + tacticalType/tacticalSerial
+function getSoldierCommsItems(ass) {
+  const a = ass || {};
+  if (Array.isArray(a.commsItems)) return a.commsItems;
+  const items = [];
+  if (a.commType     && a.commSerial)     items.push({ type: a.commType,     serial: a.commSerial });
+  if (a.multitoolType && a.multitoolSerial) items.push({ type: a.multitoolType, serial: a.multitoolSerial });
+  if (a.tacticalType  && a.tacticalSerial)  items.push({ type: a.tacticalType,  serial: a.tacticalSerial });
+  return items;
+}
+
 function normalizeGeneralTableTypeName(typeName) {
   return canonicalGeneralTableTypeName(typeName)
     .replace(/[״"]/g, '"')
@@ -202,28 +228,44 @@ function restoreGeneralTableScrollSnapshot(snapshot) {
 
 function findGeneralTableDuplicate(field, value, soldierKey) {
   if (!value) return null;
-  const all = AppState.generalTableAssignments || {};
+  // Build merged view: committed assignments as base, pending overrides on top.
+  // This ensures we never miss an assignment even if generalTableAssignments was
+  // updated (e.g. by a Firestore listener) after pending was initialised.
+  const committed = AppState.generalTableAssignments || {};
+  const pending   = AppState.pendingSignatureAssignments;
+  let all;
+  if (pending !== null) {
+    all = Object.assign({}, committed);
+    Object.keys(pending).forEach((k) => { all[k] = pending[k]; });
+  } else {
+    all = committed;
+  }
   const normalizedTarget = String(value).trim();
   let duplicateKey = null;
+
+  const [searchType, searchSerial] = normalizedTarget.split('::');
+  const canonSearch = canonicalGeneralTableTypeName(searchType || '');
 
   Object.keys(all).forEach((key) => {
     if (duplicateKey || key === soldierKey) return;
     const row = all[key] || {};
-    let current = '';
-    if (field === 'amral') current = `${canonicalGeneralTableTypeName(row.amralType || '')}::${row.amralSerial || ''}`;
-    if (field === 'comm') current = `${canonicalGeneralTableTypeName(row.commType || '')}::${row.commSerial || ''}`;
-    if (field === 'multitool') current = `${canonicalGeneralTableTypeName(row.multitoolType || '')}::${row.multitoolSerial || ''}`;
-    if (field === 'tactical') current = `${canonicalGeneralTableTypeName(row.tacticalType || '')}::${row.tacticalSerial || ''}`;
-    if (field === 'frag') {
+
+    if (field === 'amral') {
+      const items = getSoldierOpticsItems(row);
+      if (items.some((i) =>
+        canonicalGeneralTableTypeName(i.type || '') === canonSearch &&
+        String(i.serial || '').trim() === searchSerial
+      )) duplicateKey = key;
+    } else if (field === 'comm' || field === 'multitool' || field === 'tactical') {
+      const items = getSoldierCommsItems(row);
+      if (items.some((i) =>
+        canonicalGeneralTableTypeName(i.type || '') === canonSearch &&
+        String(i.serial || '').trim() === searchSerial
+      )) duplicateKey = key;
+    } else if (field === 'frag') {
       const f1 = String(row.fragGrenade1 || row.fragGrenade || '').trim();
       const f2 = String(row.fragGrenade2 || '').trim();
-      current = `${f1}||${f2}`;
-    }
-    if (field === 'frag') {
-      const [f1 = '', f2 = ''] = String(current).split('||');
       if (f1 === normalizedTarget || f2 === normalizedTarget) duplicateKey = key;
-    } else if (current && current.trim() === normalizedTarget) {
-      duplicateKey = key;
     }
   });
 
@@ -429,6 +471,17 @@ function setGeneralTableFilter(field, values) {
   restoreGeneralTableScrollSnapshot(scrollSnapshot);
 }
 
+function clearAllGeneralTableFilters() {
+  const scrollSnapshot = getGeneralTableScrollSnapshot();
+  setState({
+    generalTableSearchTerm: '',
+    generalTableSelectedTeams: [],
+    generalTableFilters: { amral: '', comm: '', multitool: '', tactical: '', frag: '', weaponType: '', weaponSerial: '' }
+  });
+  renderApp();
+  restoreGeneralTableScrollSnapshot(scrollSnapshot);
+}
+
 function toggleGeneralTableTeamSelection(teamName) {
   const selected = Array.isArray(AppState.generalTableSelectedTeams) ? AppState.generalTableSelectedTeams : [];
   const exists = selected.includes(teamName);
@@ -494,6 +547,13 @@ function isGeneralTableSimpleFilterMatch(filterValue, values) {
   if (!filterValue) return true;
   if (filterValue === '__ALL__') return list.length > 0;
   return list.includes(filterValue);
+}
+
+// Filter match for array-based item lists (opticsItems / commsItems)
+function isGeneralTableArrayFilterMatch(filterValue, items) {
+  if (!filterValue) return true;
+  if (filterValue === '__ALL__') return items.length > 0;
+  return items.some((i) => matchGeneralTableFilterValue(i.type, i.serial) === filterValue);
 }
 
 function setGeneralTableSearchTerm(inputElOrValue) {
@@ -594,21 +654,24 @@ function renderGeneralTableTab() {
     const weapons = Array.from(weaponMap.values());
     const weaponTypes = weapons.map((w) => String((w && w.type) || '').trim()).filter(Boolean);
     const weaponSerials = weapons.map((w) => String((w && w.serial) || '').trim()).filter(Boolean);
-    const amralCurrentValue = matchGeneralTableFilterValue(ass.amralType, ass.amralSerial);
-    const commCurrentValue = matchGeneralTableFilterValue(ass.commType, ass.commSerial);
-    const multitoolCurrentValue = matchGeneralTableFilterValue(ass.multitoolType, ass.multitoolSerial);
-    const tacticalCurrentValue = matchGeneralTableFilterValue(ass.tacticalType, ass.tacticalSerial);
     const fragCurrentValue1 = String(ass.fragGrenade1 || ass.fragGrenade || '').trim();
     const fragCurrentValue2 = String(ass.fragGrenade2 || '').trim();
+
+    // Array-based items (new format), with scalar fallback (old format)
+    const soldierOptics   = getSoldierOpticsItems(ass);
+    const soldierAllComms = getSoldierCommsItems(ass);
+    const commItemsOf     = (allowedTypes) => soldierAllComms.filter((i) =>
+      allowedTypes.some((t) => canonicalGeneralTableTypeName(t) === canonicalGeneralTableTypeName(i.type || ''))
+    );
 
     if (selectedTeams.length > 0 && !selectedTeams.includes(team)) return false;
 
     return isGeneralTableSimpleFilterMatch(filters.weaponType, weaponTypes)
       && isGeneralTableSimpleFilterMatch(filters.weaponSerial, weaponSerials)
-      && isGeneralTableFilterMatch(filters.amral, amralCurrentValue !== '', amralCurrentValue)
-      && isGeneralTableFilterMatch(filters.comm, commCurrentValue !== '', commCurrentValue)
-      && isGeneralTableFilterMatch(filters.multitool, multitoolCurrentValue !== '', multitoolCurrentValue)
-      && isGeneralTableFilterMatch(filters.tactical, tacticalCurrentValue !== '', tacticalCurrentValue)
+      && isGeneralTableArrayFilterMatch(filters.amral,     soldierOptics)
+      && isGeneralTableArrayFilterMatch(filters.comm,      commItemsOf(allowedCommTypes))
+      && isGeneralTableArrayFilterMatch(filters.multitool, commItemsOf(allowedMultitoolTypes))
+      && isGeneralTableArrayFilterMatch(filters.tactical,  commItemsOf(allowedTacticalTypes))
       && isGeneralTableFragFilterMatch(filters.frag, fragCurrentValue1, fragCurrentValue2);
   });
 
@@ -639,14 +702,25 @@ function renderGeneralTableTab() {
     <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
       <div class="mb-3">
         <label class="block text-xs font-bold text-slate-600 mb-1">חיפוש (שם או מ.א)</label>
-        <input
-          id="general-table-search-input"
-          type="text"
-          value="${escH(AppState.generalTableSearchTerm || '')}"
-          oninput="setGeneralTableSearchTerm(this)"
-          placeholder="הקלד שם או מספר אישי..."
-          class="w-full border border-slate-300 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-        />
+        <div class="relative">
+          <input
+            id="general-table-search-input"
+            type="text"
+            value="${escH(AppState.generalTableSearchTerm || '')}"
+            oninput="setGeneralTableSearchTerm(this)"
+            placeholder="הקלד שם או מספר אישי..."
+            class="w-full border border-slate-300 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none ${AppState.generalTableSearchTerm ? 'pl-8' : ''}"
+          />
+          ${AppState.generalTableSearchTerm ? `
+            <button type="button"
+              onclick="setState({generalTableSearchTerm:''}); renderApp();"
+              class="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 transition-colors"
+              title="נקה חיפוש">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+              </svg>
+            </button>` : ''}
+        </div>
       </div>
       <div class="mb-3">
         <label class="block text-xs font-bold text-slate-600 mb-2">צוותים</label>
@@ -720,6 +794,19 @@ function renderGeneralTableTab() {
           </select>
         </div>
       </div>
+      ${(AppState.generalTableSearchTerm ||
+         AppState.generalTableSelectedTeams.length > 0 ||
+         Object.values(filters).some(v => v)) ? `
+      <div class="mt-3 flex justify-end">
+        <button type="button"
+          onclick="clearAllGeneralTableFilters()"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+          </svg>
+          נקה סינונים
+        </button>
+      </div>` : ''}
     </div>
 
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -781,14 +868,15 @@ function renderGeneralTableTab() {
               const additionalMeansHtml = additionalMeansLines.length > 0
                 ? `<div class="space-y-1">${additionalMeansLines.map((line) => `<div>${escH(line)}</div>`).join('')}</div>`
                 : '-';
-              const amralValue = ass.amralType && ass.amralSerial ? `${encodeURIComponent(ass.amralType)}::${encodeURIComponent(ass.amralSerial)}` : '';
-              const amralLabel = (ass.amralType && ass.amralSerial) ? getGeneralTableMediumMarkingLabel(ass.amralType, ass.amralSerial) : '-';
-              const commValue = ass.commType && ass.commSerial ? `${encodeURIComponent(ass.commType)}::${encodeURIComponent(ass.commSerial)}` : '';
-              const commLabel = getGeneralTableAssignmentDisplayLabel(ass.commType, ass.commSerial);
-              const multitoolValue = ass.multitoolType && ass.multitoolSerial ? `${encodeURIComponent(ass.multitoolType)}::${encodeURIComponent(ass.multitoolSerial)}` : '';
-              const multitoolLabel = getGeneralTableAssignmentDisplayLabel(ass.multitoolType, ass.multitoolSerial);
-              const tacticalValue = ass.tacticalType && ass.tacticalSerial ? `${encodeURIComponent(ass.tacticalType)}::${encodeURIComponent(ass.tacticalSerial)}` : '';
-              const tacticalLabel = getGeneralTableAssignmentDisplayLabel(ass.tacticalType, ass.tacticalSerial);
+              const soldierOpticsItems = getSoldierOpticsItems(ass);
+              const soldierCommsItems  = getSoldierCommsItems(ass);
+              const commItemsOfType    = (type) => soldierCommsItems.filter((i) => canonicalGeneralTableTypeName(i.type || '') === type);
+              const multiItemHtml = (items, labelFn) => items.length === 0 ? '-'
+                : `<div class="space-y-0.5">${items.map((i) => `<div>${escH(labelFn(i.type, i.serial))}</div>`).join('')}</div>`;
+              const amralHtml      = multiItemHtml(soldierOpticsItems, (t, s) => getGeneralTableMediumMarkingLabel(t, s));
+              const commHtml       = multiItemHtml(commItemsOfType('קשר 710'), (t, s) => getGeneralTableAssignmentDisplayLabel(t, s));
+              const multitoolHtml  = multiItemHtml(commItemsOfType('אולר'), (t, s) => getGeneralTableAssignmentDisplayLabel(t, s));
+              const tacticalHtml   = multiItemHtml(commItemsOfType('מטען טקטי לאולר'), (t, s) => getGeneralTableAssignmentDisplayLabel(t, s));
               const fragValue1 = String(ass.fragGrenade1 || ass.fragGrenade || '');
               const fragValue2 = String(ass.fragGrenade2 || '');
               const fragLabel1 = fragValue1 ? getGeneralTableCellLabel('רימון רסס', fragValue1) : '';
@@ -801,10 +889,10 @@ function renderGeneralTableTab() {
                 ${hideWeaponColumns ? '' : `<td class="text-slate-700 align-top">${weaponTypesHtml}</td>`}
                 ${hideWeaponColumns ? '' : `<td class="font-mono text-slate-700 align-top">${weaponSerialsHtml}</td>`}
                 ${hideWeaponColumns ? '' : `<td class="text-slate-700 align-top">${additionalMeansHtml}</td>`}
-                <td class="text-slate-700 align-top">${escH(amralLabel)}</td>
-                <td class="text-slate-700 align-top">${escH(commLabel)}</td>
-                <td class="text-slate-700 align-top">${escH(multitoolLabel)}</td>
-                <td class="text-slate-700 align-top">${escH(tacticalLabel)}</td>
+                <td class="text-slate-700 align-top">${amralHtml}</td>
+                <td class="text-slate-700 align-top">${commHtml}</td>
+                <td class="text-slate-700 align-top">${multitoolHtml}</td>
+                <td class="text-slate-700 align-top">${tacticalHtml}</td>
                 <td class="text-slate-700 align-top">
                   ${fragValue1 || fragValue2
                     ? `<div>${fragValue1 ? escH(fragLabel1) : ''}</div>${fragValue2 ? `<div>${escH(fragLabel2)}</div>` : ''}`
